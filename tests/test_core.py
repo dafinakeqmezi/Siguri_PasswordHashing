@@ -60,7 +60,7 @@ class PlatformTests(unittest.TestCase):
     def test_apple_silicon_frequency_is_not_reported(self):
         with patch("password_benchmark.environment.platform.system", return_value="Darwin"), patch(
             "password_benchmark.environment.platform.machine", return_value="arm64"
-        ), patch("password_benchmark.environment.psutil.cpu_freq") as frequency:
+        ), patch("password_benchmark.environment.psutil.cpu_freq", create=True) as frequency:
             self.assertIsNone(_cpu_frequency())
             frequency.assert_not_called()
 
