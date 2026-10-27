@@ -43,6 +43,7 @@ def print_help() -> None:
     print("  concurrent      Run the concurrent throughput experiment.")
     print("  analyze         Build tables, figures, and summary.md from collected data.")
     print("  all             Run the registered experiment, then analyze it.")
+    print("  save-run NAME   Save raw data, results, and source in runs/NAME; refuses overwrite.")
     print()
     print("Run commands from the project root. Close other applications before 'all'.")
 
@@ -72,6 +73,15 @@ def _execute(cfg, raw_dir: Path, results_dir: Path, design: str, phases: list[st
 def main(argv: list[str] | None = None) -> int:
     _prepare_process()
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if len(arguments) == 2 and arguments[0] == "save-run":
+        from password_benchmark.archive import save_run
+
+        try:
+            destination = save_run(arguments[1])
+        except (ValueError, OSError, RuntimeError) as exc:
+            raise SystemExit(str(exc)) from exc
+        print(f"Saved run in {destination}", flush=True)
+        return 0
     if len(arguments) != 1 or arguments[0] in {"-h", "--help", "help"}:
         print_help()
         return 0 if arguments and arguments[0] in {"-h", "--help", "help"} else 1

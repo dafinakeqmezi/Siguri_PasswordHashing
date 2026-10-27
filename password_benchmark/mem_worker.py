@@ -6,6 +6,7 @@ be missed between samples.
 """
 
 import json
+import platform
 import sys
 
 import psutil
@@ -13,29 +14,31 @@ import psutil
 from password_benchmark.hashers import make_hasher
 
 
-def _peak_bytes(info) -> int:
-    for name in ("peak_wset", "peak_rss"):
-        value = getattr(info, name, None)
-        if value:
-            return int(value)
-    return int(info.rss)
+def _peak_bytes() -> int:
+    if platform.system() == "Windows":
+        return int(psutil.Process().memory_info().peak_wset)
+    # resource is unavailable on Windows. Darwin reports bytes; other Unix
+    # platforms report KiB. This records the high-water mark, even after free().
+    import resource
+
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return int(peak if platform.system() == "Darwin" else peak * 1024)
 
 
 def main() -> int:
     try:
         job = json.loads(sys.stdin.readline())
         hasher = make_hasher(job["algorithm"], job["params"])
-        before = psutil.Process().memory_full_info()
-        print(json.dumps({"event": "ready", "rss": int(before.rss)}), flush=True)
+        baseline_rss = psutil.Process().memory_info().rss
+        peak_before = _peak_bytes()
+        print(json.dumps({"event": "ready", "rss": int(baseline_rss)}), flush=True)
         sys.stdin.readline()
         ok = bool(hasher.verify(job["password"], job["encoded"]))
-        after = psutil.Process().memory_full_info()
-        peak_before = _peak_bytes(before)
-        peak_after = _peak_bytes(after)
+        peak_after = _peak_bytes()
         print(
             json.dumps(
                 {
-                    "baseline_rss": int(before.rss),
+                    "baseline_rss": int(baseline_rss),
                     "delta_rss": max(0, peak_after - peak_before),
                     "event": "done",
                     "ok": ok,

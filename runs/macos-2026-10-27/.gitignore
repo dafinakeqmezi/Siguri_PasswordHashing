@@ -1,0 +1,11 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+data/smoke/
+results/smoke/
+results/runtime_estimate.json
+results/RUN_IN_PROGRESS
+*.log

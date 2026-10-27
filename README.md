@@ -38,29 +38,53 @@ Memory is the increase in the peak working set of a fresh process during one ver
 
 ## Setup
 
-Use Python 3.12 from the project root:
+Windows and macOS use the same benchmark and configuration. Python 3.12 is
+recommended for consistency across the team; the local Mac run also used Python
+3.13. Record the actual version with each run. Run commands from the project root.
+
+### Windows (PowerShell)
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
 ```
 
-`requirements-lock.txt` pins the exact environment. `requirements.txt` lists the direct libraries. Do not commit the `.venv` directory.
+Activation is optional: these commands call the virtual environment directly,
+so PowerShell execution-policy changes are unnecessary.
 
-Check the harness:
+### macOS (Terminal)
+
+```bash
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r requirements-lock.txt
+```
+
+Use `python3.12` in the first command if you have it installed and want the same
+Python version as teammates using `py -3.12` on Windows.
+
+`requirements-lock.txt` pins package versions, not the OS, Python interpreter,
+or OpenSSL. `requirements.txt` lists the direct libraries. Do not commit the
+`.venv` directory or copy it between operating systems.
+
+### Check and estimate
+
+Windows:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe -m password_benchmark smoke
+.\.venv\Scripts\python.exe -m password_benchmark estimate
+```
+
+macOS:
+
+```bash
+./.venv/bin/python -m unittest discover -s tests -v
+./.venv/bin/python -m password_benchmark smoke
+./.venv/bin/python -m password_benchmark estimate
 ```
 
 `smoke` writes only to `data/smoke` and `results/smoke`. Those figures are a pipeline check. Do not put them in the report.
-
-Estimate the full run on this machine:
-
-```powershell
-.\.venv\Scripts\python.exe -m password_benchmark estimate
-```
 
 The estimate is rough and is not an experimental result.
 
@@ -69,13 +93,39 @@ The estimate is rough and is not an experimental result.
 Collect the report numbers on one idle machine:
 
 - connect the power adapter
-- select the High performance power scheme
+- on Windows, select the High performance power scheme if available
+- on macOS, disable Low Power Mode and keep the lid open; use the same power settings throughout the run
 - close browsers and other heavy applications
 - do not use the machine until the process exits
 
 ```powershell
 .\.venv\Scripts\python.exe -m password_benchmark all
 ```
+
+On macOS:
+
+```bash
+./.venv/bin/python -m password_benchmark all
+```
+
+The full run replaces the working `data/raw` measurements and generated results.
+Before another run, save the completed run under a unique name:
+
+```powershell
+# Windows
+.\.venv\Scripts\python.exe -m password_benchmark save-run windows-dafina-2026-10-28
+```
+
+```bash
+# macOS
+./.venv/bin/python -m password_benchmark save-run mac-delize-2026-10-28
+```
+
+This copies raw data, results, configuration, and the source as it exists at
+save time into `runs/NAME`, with file checksums. It refuses to overwrite an
+existing saved run. Save immediately after measurement, before editing source.
+Share each machine's complete saved folder. The existing Windows and Mac runs
+are preserved separately; see [runs/README.md](runs/README.md).
 
 With no command, the program prints help and does not start a measurement.
 
@@ -90,6 +140,8 @@ Individual phases, if one of them has to be repeated:
 ```
 
 Repeating a phase replaces that phase's raw file. `analyze` can be repeated without repeating the measurements.
+For any of these commands on macOS, replace `.\.venv\Scripts\python.exe` with
+`./.venv/bin/python`.
 
 ## Output
 
@@ -109,6 +161,10 @@ Repeating a phase replaces that phase's raw file. `analyze` can be repeated with
 ## Method notes for the report
 
 - One controlled machine. The results belong to the hardware and library versions in `environment.json`.
+- All teammates can run the harness on Windows or macOS. Select one machine's complete run for the main comparison to retain the proposal's controlled-machine design. Additional machines can be reported separately as a supplementary experiment. Different hardware, OS, Python, and OpenSSL versions change together, so these runs cannot isolate an OS performance effect. Do not pool their samples.
+- Windows records its CPU model and active power scheme; macOS records its chip model and `pmset` power settings. Apple Silicon CPU frequency is omitted because the available readings are unreliable.
+- Sequential memory uses a fresh child process and OS peak counters: peak working set on Windows and `getrusage` maximum RSS on macOS. The delta is the increase in the process high-water mark, not an exact allocation count. Older Mac results collected before this correction retain their original measurement method.
+- Concurrent RSS is total resident memory of the benchmark process tree. The runner reuses its main process between configurations, so retained allocations from earlier cases can inflate later readings. Do not interpret these values as each algorithm's isolated memory requirement.
 - Password salts are random and are created during hash construction, outside the timed verification.
 - `wall_ns` in the latency file is only the verification call. CPU time uses the process timer for the same call.
 - Concurrent CPU time is the CPU time of the worker processes or threads over the whole batch, not a per-call timer. Per-call CPU timers are misleading when several verifications share a process.

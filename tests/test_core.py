@@ -1,6 +1,9 @@
 """Checks for the benchmark harness. These are not the experimental results."""
 
 import unittest
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
@@ -12,6 +15,70 @@ from password_benchmark.memory import probe_verify_rss, should_skip_for_memory
 from password_benchmark.passwords import generate_passwords
 from password_benchmark.paths import CONFIG_PATH
 from password_benchmark.stats import median, meets_budget, percentile
+from password_benchmark.environment import _cpu_name, _power_scheme, _cpu_frequency
+from password_benchmark.mem_worker import _peak_bytes
+from password_benchmark.archive import save_run
+
+
+class ArchiveTests(unittest.TestCase):
+    def test_saved_run_keeps_data_and_refuses_overwrite(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for folder in ("data/raw", "results/smoke", "config", "password_benchmark", "tests"):
+                (root / folder).mkdir(parents=True, exist_ok=True)
+            for filename in ("data/raw/latency.jsonl", "results/environment.json", "results/summary.md", "README.md", "requirements.txt", "requirements-lock.txt"):
+                (root / filename).write_text("original", encoding="utf-8")
+            (root / "results/smoke/summary.md").write_text("smoke", encoding="utf-8")
+            saved = save_run("mac-test", root)
+            (root / "results/summary.md").write_text("next run", encoding="utf-8")
+            self.assertEqual((saved / "results/summary.md").read_text(), "original")
+            self.assertFalse((saved / "results/smoke").exists())
+            self.assertTrue((saved / "manifest.json").is_file())
+            with self.assertRaises(FileExistsError):
+                save_run("mac-test", root)
+            with self.assertRaises(ValueError):
+                save_run("../outside", root)
+            (root / "results/RUN_IN_PROGRESS").touch()
+            with self.assertRaises(RuntimeError):
+                save_run("busy", root)
+
+
+class PlatformTests(unittest.TestCase):
+    def test_platform_specific_environment_commands(self):
+        for system, cpu_command, power_command in (
+            ("Windows", "powershell", "powercfg"),
+            ("Darwin", "sysctl", "pmset"),
+        ):
+            with self.subTest(system=system), patch(
+                "password_benchmark.environment.platform.system", return_value=system
+            ), patch("password_benchmark.environment.subprocess.check_output", return_value="Example output\n") as command:
+                self.assertEqual(_cpu_name(), "Example output")
+                self.assertEqual(command.call_args.args[0][0], cpu_command)
+                self.assertEqual(_power_scheme(), "Example output")
+                self.assertEqual(command.call_args.args[0][0], power_command)
+
+    def test_apple_silicon_frequency_is_not_reported(self):
+        with patch("password_benchmark.environment.platform.system", return_value="Darwin"), patch(
+            "password_benchmark.environment.platform.machine", return_value="arm64"
+        ), patch("password_benchmark.environment.psutil.cpu_freq") as frequency:
+            self.assertIsNone(_cpu_frequency())
+            frequency.assert_not_called()
+
+    def test_peak_memory_backends_and_units(self):
+        with patch("password_benchmark.mem_worker.platform.system", return_value="Windows"), patch(
+            "password_benchmark.mem_worker.psutil.Process"
+        ) as process:
+            process.return_value.memory_info.return_value.peak_wset = 123456
+            self.assertEqual(_peak_bytes(), 123456)
+        # A fake resource module also exercises the Unix branch on Windows CI.
+        resource = Mock()
+        resource.getrusage.return_value.ru_maxrss = 123456
+        with patch.dict("sys.modules", {"resource": resource}):
+            for system, expected in (("Darwin", 123456), ("Linux", 123456 * 1024)):
+                with self.subTest(system=system), patch(
+                    "password_benchmark.mem_worker.platform.system", return_value=system
+                ):
+                    self.assertEqual(_peak_bytes(), expected)
 
 
 class StatsTests(unittest.TestCase):

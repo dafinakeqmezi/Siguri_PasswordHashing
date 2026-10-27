@@ -24,10 +24,18 @@ def _package_version(name: str) -> str:
 
 
 def _cpu_name() -> str:
+    system = platform.system()
+    if system not in {"Windows", "Darwin"}:
+        return platform.processor() or platform.machine()
+    command = (
+        ["sysctl", "-n", "machdep.cpu.brand_string"]
+        if system == "Darwin"
+        else ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_Processor).Name"]
+    )
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         output = subprocess.check_output(
-            ["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_Processor).Name"],
+            command,
             text=True,
             timeout=30,
             creationflags=creationflags,
@@ -41,10 +49,14 @@ def _cpu_name() -> str:
 
 
 def _power_scheme() -> str:
+    system = platform.system()
+    if system not in {"Windows", "Darwin"}:
+        return "not collected on this platform"
+    command = ["pmset", "-g", "custom"] if system == "Darwin" else ["powercfg", "/getactivescheme"]
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         output = subprocess.check_output(
-            ["powercfg", "/getactivescheme"],
+            command,
             text=True,
             timeout=20,
             creationflags=creationflags,
@@ -63,6 +75,9 @@ def _pip_freeze() -> list[str]:
 
 
 def _cpu_frequency() -> dict | None:
+    # Apple Silicon frequency readings from psutil are not reliable MHz.
+    if platform.system() == "Darwin" and platform.machine() == "arm64":
+        return None
     try:
         freq = psutil.cpu_freq()
     except Exception:

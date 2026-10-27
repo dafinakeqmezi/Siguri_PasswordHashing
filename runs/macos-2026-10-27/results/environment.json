@@ -1,0 +1,53 @@
+{
+  "computer_time_utc": "2026-10-27T21:15:48.626578+00:00",
+  "config_sha256": "fed42fd6b7c6f09c0870817614bc1d841c6766f99437cbfda8932e9047045aa4",
+  "cpu_count_logical": 12,
+  "cpu_count_physical": 12,
+  "cpu_frequency_mhz": {
+    "current_mhz": 4,
+    "min_mhz": 1,
+    "max_mhz": 4
+  },
+  "cpu_name": "arm",
+  "design": "registered",
+  "implementation": "CPython",
+  "libraries": {
+    "argon2-cffi": "25.1.0",
+    "bcrypt": "5.0.0",
+    "psutil": "7.2.2",
+    "pandas": "3.1.0",
+    "matplotlib": "3.11.2",
+    "PyYAML": "6.0.3"
+  },
+  "machine": "arm64",
+  "openssl": "OpenSSL 3.5.1 1 Jul 2025",
+  "pip_freeze": [
+    "argon2-cffi==25.1.0",
+    "argon2-cffi-bindings==26.1.0",
+    "bcrypt==5.0.0",
+    "cffi==2.1.1",
+    "contourpy==1.4.0",
+    "cycler==0.12.1",
+    "fonttools==4.67.0",
+    "kiwisolver==1.5.1",
+    "matplotlib==3.11.2",
+    "numpy==2.5.4",
+    "packaging==26.3",
+    "pandas==3.1.0",
+    "pillow==13.0.0",
+    "psutil==7.2.2",
+    "pycparser==3.12",
+    "pyparsing==3.3.3",
+    "python-dateutil==3.0.0",
+    "PyYAML==6.0.3",
+    "six==1.17.0",
+    "tzdata==2026.5"
+  ],
+  "platform": "macOS-15.2-arm64-arm-64bit-Mach-O",
+  "power_scheme": "unavailable: [Errno 2] No such file or directory: 'powercfg'",
+  "processor": "arm",
+  "python": "3.13.5 (main, Jun 11 2025, 15:36:57) [Clang 16.0.0 (clang-1600.0.26.6)]",
+  "ram_bytes": 25769803776,
+  "schema_version": 1,
+  "benchmark_version": "1.0.0"
+}
