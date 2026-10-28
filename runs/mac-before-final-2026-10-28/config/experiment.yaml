@@ -1,0 +1,76 @@
+# Registered before measurement. Do not edit these values after looking at results.
+# Baselines follow the OWASP Password Storage Cheat Sheet minima:
+#   Argon2id m=19456 KiB (19 MiB), t=2, p=1
+#   bcrypt cost 10
+#   PBKDF2-HMAC-SHA256 600000 iterations
+# Latency budgets are experimental login thresholds, not security equivalences.
+# The main sweep raises one parameter and keeps the others fixed.
+
+seed: 20261023
+
+passwords:
+  count: 40
+  lengths: [12, 16, 24, 32]
+  charset: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+warmup_repeats: 10
+measured_repeats: 25
+pilot_repeats: 5
+# A configuration whose pilot median exceeds this value uses slow_repeats.
+slow_threshold_ms: 2000
+slow_repeats: 10
+memory_repeats: 3
+
+latency_budgets_ms:
+  A: 500
+  B: 1000
+
+throughput:
+  minimum_per_second: 10
+  reference_workers: 4
+
+concurrency:
+  workers: [1, 2, 4, 8]
+  verifications: 200
+  process_pool_verifications: 50
+  # Thread-pool and process-pool baseline throughput within this relative difference
+  # are treated as agreeing. Larger differences are reported separately.
+  process_pool_agreement_ratio: 0.15
+
+algorithms:
+  argon2id:
+    baseline:
+      memory_kib: 19456
+      time_cost: 2
+      parallelism: 1
+      hash_len: 32
+      salt_len: 16
+    sweep:
+      parameter: memory_kib
+      values: [19456, 32768, 47104, 65536, 131072]
+      fixed:
+        time_cost: 2
+        parallelism: 1
+        hash_len: 32
+        salt_len: 16
+  bcrypt:
+    baseline:
+      cost: 10
+    sweep:
+      parameter: cost
+      values: [10, 11, 12, 13, 14]
+      fixed: {}
+  pbkdf2_sha256:
+    baseline:
+      iterations: 600000
+      hash_len: 32
+      salt_len: 16
+    sweep:
+      parameter: iterations
+      values: [600000, 900000, 1200000, 1500000]
+      fixed:
+        hash_len: 32
+        salt_len: 16
+
+bcrypt_length:
+  lengths: [71, 72, 73, 100]
