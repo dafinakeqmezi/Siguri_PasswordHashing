@@ -1,14 +1,14 @@
 {
-  "computer_time_utc": "2026-10-27T21:15:48.626578+00:00",
+  "computer_time_utc": "2026-10-28T12:25:06.044229+00:00",
   "config_sha256": "fed42fd6b7c6f09c0870817614bc1d841c6766f99437cbfda8932e9047045aa4",
-  "cpu_count_logical": 12,
-  "cpu_count_physical": 12,
+  "cpu_count_logical": 16,
+  "cpu_count_physical": 8,
   "cpu_frequency_mhz": {
-    "current_mhz": 4,
-    "min_mhz": 1,
-    "max_mhz": 4
+    "current_mhz": 2701.0,
+    "min_mhz": 0.0,
+    "max_mhz": 2701.0
   },
-  "cpu_name": "arm",
+  "cpu_name": "AMD Ryzen 7 PRO 6850U with Radeon Graphics",
   "design": "registered",
   "implementation": "CPython",
   "libraries": {
@@ -16,11 +16,13 @@
     "bcrypt": "5.0.0",
     "psutil": "7.2.2",
     "pandas": "3.1.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
     "matplotlib": "3.11.2",
     "PyYAML": "6.0.3"
   },
-  "machine": "arm64",
-  "openssl": "OpenSSL 3.5.1 1 Jul 2025",
+  "machine": "AMD64",
+  "openssl": "OpenSSL 3.0.16 11 Feb 2025",
   "pip_freeze": [
     "argon2-cffi==25.1.0",
     "argon2-cffi-bindings==26.1.0",
@@ -40,14 +42,15 @@
     "pyparsing==3.3.3",
     "python-dateutil==3.0.0",
     "PyYAML==6.0.3",
+    "scipy==1.18.1",
     "six==1.17.0",
     "tzdata==2026.5"
   ],
-  "platform": "macOS-15.2-arm64-arm-64bit-Mach-O",
-  "power_scheme": "unavailable: [Errno 2] No such file or directory: 'powercfg'",
-  "processor": "arm",
-  "python": "3.13.5 (main, Jun 11 2025, 15:36:57) [Clang 16.0.0 (clang-1600.0.26.6)]",
-  "ram_bytes": 25769803776,
+  "platform": "Windows-11-10.0.26200-SP0",
+  "power_scheme": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e (Balanced)",
+  "processor": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+  "ram_bytes": 29817647104,
   "schema_version": 1,
   "benchmark_version": "1.0.0"
 }
