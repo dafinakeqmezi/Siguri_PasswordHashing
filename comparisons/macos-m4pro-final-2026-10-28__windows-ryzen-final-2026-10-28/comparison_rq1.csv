@@ -1,0 +1,7 @@
+algorithm,config_id,run,median_ms,p95_ms,median_ratio_to_first_run
+argon2id,argon2id-m19456-t2-p1,macos-m4pro-final-2026-10-28,13.529542,15.71456455,1.0
+argon2id,argon2id-m19456-t2-p1,windows-ryzen-final-2026-10-28,21.42785,23.86355,1.5837823630689052
+bcrypt,bcrypt-c10,macos-m4pro-final-2026-10-28,41.7831045,43.6595107,1.0
+bcrypt,bcrypt-c10,windows-ryzen-final-2026-10-28,46.35455,47.086815,1.1094089478200453
+pbkdf2_sha256,pbkdf2-sha256-i600000,macos-m4pro-final-2026-10-28,48.269313,49.22788475,1.0
+pbkdf2_sha256,pbkdf2-sha256-i600000,windows-ryzen-final-2026-10-28,207.63735,211.739835,4.301642950667229

@@ -1,0 +1,17 @@
+algorithm,name,password_bytes,alternate_bytes,same_result,error,library,description
+argon2id,sha256_of_64_bytes,64,32,False,,argon2-cffi 25.1.0,64-byte password and the 32-byte SHA-256 digest of that password
+argon2id,sha256_of_65_bytes,65,32,False,,argon2-cffi 25.1.0,65-byte password and the 32-byte SHA-256 digest of that password
+argon2id,sha256_of_100_bytes,100,32,False,,argon2-cffi 25.1.0,100-byte password and the 32-byte SHA-256 digest of that password
+argon2id,trailing_nul,20,21,False,,argon2-cffi 25.1.0,20-byte password and the same password followed by one NUL byte
+bcrypt,sha256_of_64_bytes,64,32,False,,bcrypt 5.0.0,64-byte password and the 32-byte SHA-256 digest of that password
+bcrypt,sha256_of_65_bytes,65,32,False,,bcrypt 5.0.0,65-byte password and the 32-byte SHA-256 digest of that password
+bcrypt,sha256_of_100_bytes,100,32,,"ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])",bcrypt 5.0.0,100-byte password and the 32-byte SHA-256 digest of that password
+bcrypt,trailing_nul,20,21,False,,bcrypt 5.0.0,20-byte password and the same password followed by one NUL byte
+pbkdf2_sha256,sha256_of_64_bytes,64,32,False,,hashlib (OpenSSL),64-byte password and the 32-byte SHA-256 digest of that password
+pbkdf2_sha256,sha256_of_65_bytes,65,32,True,,hashlib (OpenSSL),65-byte password and the 32-byte SHA-256 digest of that password
+pbkdf2_sha256,sha256_of_100_bytes,100,32,True,,hashlib (OpenSSL),100-byte password and the 32-byte SHA-256 digest of that password
+pbkdf2_sha256,trailing_nul,20,21,True,,hashlib (OpenSSL),20-byte password and the same password followed by one NUL byte
+scrypt,sha256_of_64_bytes,64,32,False,,hashlib (OpenSSL),64-byte password and the 32-byte SHA-256 digest of that password
+scrypt,sha256_of_65_bytes,65,32,True,,hashlib (OpenSSL),65-byte password and the 32-byte SHA-256 digest of that password
+scrypt,sha256_of_100_bytes,100,32,True,,hashlib (OpenSSL),100-byte password and the 32-byte SHA-256 digest of that password
+scrypt,trailing_nul,20,21,True,,hashlib (OpenSSL),20-byte password and the same password followed by one NUL byte

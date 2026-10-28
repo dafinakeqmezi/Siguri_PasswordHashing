@@ -1,0 +1,15 @@
+algorithm,config_id,parameter_name,parameter_value,n,median_hash_ms
+argon2id,argon2id-m19456-t2-p1,memory_kib,19456,40,13.2819375
+argon2id,argon2id-m32768-t2-p1,memory_kib,32768,40,25.5074995
+argon2id,argon2id-m47104-t2-p1,memory_kib,47104,40,38.851104
+argon2id,argon2id-m65536-t2-p1,memory_kib,65536,40,57.184687499999995
+argon2id,argon2id-m131072-t2-p1,memory_kib,131072,40,125.617583
+bcrypt,bcrypt-c10,cost,10,40,41.901938
+bcrypt,bcrypt-c11,cost,11,40,83.678729
+bcrypt,bcrypt-c12,cost,12,40,165.666625
+bcrypt,bcrypt-c13,cost,13,40,328.46393750000004
+bcrypt,bcrypt-c14,cost,14,40,659.214104
+pbkdf2_sha256,pbkdf2-sha256-i600000,iterations,600000,40,47.722375
+pbkdf2_sha256,pbkdf2-sha256-i900000,iterations,900000,40,72.630229
+pbkdf2_sha256,pbkdf2-sha256-i1200000,iterations,1200000,40,96.6034585
+pbkdf2_sha256,pbkdf2-sha256-i1500000,iterations,1500000,40,120.6085625
