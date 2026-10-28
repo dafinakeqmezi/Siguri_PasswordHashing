@@ -1,0 +1,2 @@
+# Keep the registered design byte-identical on every OS, so its SHA-256 matches across machines.
+config/*.yaml text eol=lf

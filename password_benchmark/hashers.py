@@ -99,6 +99,48 @@ class Pbkdf2Sha256Hasher:
         return hmac.compare_digest(derived, expected)
 
 
+def scrypt_maxmem(n: int, r: int, p: int) -> int:
+    # OpenSSL refuses to allocate more than maxmem: V is 128*r*(n+2) bytes and B is 128*r*p.
+    return 128 * r * (n + 2) + 128 * r * p + 1024 * 1024
+
+
+class ScryptHasher:
+    """hashlib.scrypt (OpenSSL). Supplementary algorithm, added after the proposal."""
+
+    def __init__(self, n: int, r: int, p: int, hash_len: int, salt_len: int):
+        n, r, p = int(n), int(r), int(p)
+        if n < 2 or n & (n - 1):
+            raise ValueError("scrypt n must be a power of two greater than 1")
+        if r < 1 or p < 1 or int(hash_len) < 16 or int(salt_len) < 8:
+            raise ValueError("Invalid scrypt r, p, hash length, or salt length")
+        self.n = n
+        self.r = r
+        self.p = p
+        self.hash_len = int(hash_len)
+        self.salt_len = int(salt_len)
+
+    @staticmethod
+    def _derive(password: bytes, salt: bytes, n: int, r: int, p: int, dklen: int) -> bytes:
+        return hashlib.scrypt(password, salt=salt, n=n, r=r, p=p, maxmem=scrypt_maxmem(n, r, p), dklen=dklen)
+
+    def hash_password(self, password: str) -> str:
+        salt = os.urandom(self.salt_len)
+        derived = self._derive(password.encode("utf-8"), salt, self.n, self.r, self.p, self.hash_len)
+        salt_b64 = base64.b64encode(salt).decode("ascii")
+        derived_b64 = base64.b64encode(derived).decode("ascii")
+        return f"scrypt${self.n}${self.r}${self.p}${salt_b64}${derived_b64}"
+
+    def verify(self, password: str, encoded: str) -> bool:
+        parts = encoded.split("$")
+        if len(parts) != 6 or parts[0] != "scrypt":
+            raise ValueError("Unrecognized scrypt hash encoding")
+        n, r, p = int(parts[1]), int(parts[2]), int(parts[3])
+        salt = base64.b64decode(parts[4])
+        expected = base64.b64decode(parts[5])
+        derived = self._derive(password.encode("utf-8"), salt, n, r, p, len(expected))
+        return hmac.compare_digest(derived, expected)
+
+
 def make_hasher(algorithm: str, params: dict):
     if algorithm == "argon2id":
         return Argon2idHasher(
@@ -113,6 +155,14 @@ def make_hasher(algorithm: str, params: dict):
     if algorithm == "pbkdf2_sha256":
         return Pbkdf2Sha256Hasher(
             iterations=params["iterations"],
+            hash_len=params["hash_len"],
+            salt_len=params["salt_len"],
+        )
+    if algorithm == "scrypt":
+        return ScryptHasher(
+            n=params["n"],
+            r=params["r"],
+            p=params["p"],
             hash_len=params["hash_len"],
             salt_len=params["salt_len"],
         )

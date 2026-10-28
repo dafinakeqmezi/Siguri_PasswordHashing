@@ -25,6 +25,13 @@ files do not update these snapshots. Use a new name for every future saved run:
 python -m password_benchmark save-run MACHINE-PERSON-DATE
 ```
 
+Both saved runs predate three harness corrections made on 2026-10-28: pool
+workers now start before the batch clock, concurrent memory is measured in a
+fresh process, and Linux memory uses `VmHWM`. Use a new run collected with
+`python -m password_benchmark final` for the report tables, and cite these two
+runs only as earlier, superseded measurements. Their process-pool breakdown can
+be reproduced with `analyze` on a copy of their `data/raw` folder.
+
 Keep each machine's measurements separate. Select one complete run for the
 proposal's main controlled-machine comparison; additional runs can be presented
 as supplementary results. These machines differ in hardware and software, so

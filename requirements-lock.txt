@@ -16,5 +16,6 @@ pycparser==3.12
 pyparsing==3.3.3
 python-dateutil==3.0.0
 PyYAML==6.0.3
+scipy==1.18.1
 six==1.17.0
 tzdata==2026.5

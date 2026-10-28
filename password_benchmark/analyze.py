@@ -1,18 +1,32 @@
 """Build the tables, figures, and summary from raw JSONL measurements."""
 
 import json
+import math
+import zlib
 from pathlib import Path
 
-from password_benchmark.cases import display_name, parameter_axis_value
+from password_benchmark.cases import PARAMETER_AXIS, display_name, parameter_axis_value
 from password_benchmark.io_utils import read_jsonl
-from password_benchmark.stats import median, meets_budget, percentile
+from password_benchmark.stats import (
+    bootstrap_median_contrast_ci,
+    bootstrap_percentile_ci,
+    cliffs_magnitude,
+    holm_adjust,
+    kruskal_wallis,
+    mann_whitney,
+    median,
+    meets_budget,
+    percentile,
+)
 
 COLORS = {
     "argon2id": "#0072B2",
     "bcrypt": "#D55E00",
     "pbkdf2_sha256": "#009E73",
+    "scrypt": "#CC79A7",
 }
 MIB = 1024 * 1024
+DEFAULT_STATISTICS = {"bootstrap_resamples": 10000, "confidence": 0.95, "seed": 20261028}
 
 
 def _check_design(rows: list[dict], expected: str, filename: str) -> None:
@@ -88,9 +102,68 @@ def _latency_table(rows: list[dict]) -> list[dict]:
                 "reduced_sample": bool(first.get("reduced_sample")),
                 "repeats_used": first.get("repeats_used"),
                 "roles": first["roles"],
+                "tags": first.get("tags") or {},
+                "_walls": walls,
             }
         )
     return table
+
+
+def _seed_for(base_seed: int, name: str) -> int:
+    return base_seed + zlib.crc32(name.encode("utf-8"))
+
+
+def _attach_intervals(table: list[dict], statistics: dict) -> None:
+    """Bootstrap intervals for the median and p95 of each configuration."""
+    resamples = int(statistics["bootstrap_resamples"])
+    confidence = float(statistics["confidence"])
+    for row in table:
+        seed = _seed_for(int(statistics["seed"]), row["config_id"])
+        row["median_ci_low"], row["median_ci_high"] = bootstrap_percentile_ci(row["_walls"], 50, resamples, confidence, seed)
+        row["p95_ci_low"], row["p95_ci_high"] = bootstrap_percentile_ci(row["_walls"], 95, resamples, confidence, seed + 1)
+
+
+def _fmt_p(value: float) -> str:
+    if value < 0.0001:
+        return "< 0.0001"
+    return f"{value:.4f}"
+
+
+def _baseline_tests(baselines: list[dict], statistics: dict) -> tuple[dict | None, list[dict]]:
+    """Kruskal-Wallis across the baselines, then pairwise Mann-Whitney with Holm adjustment."""
+    if len(baselines) < 2:
+        return None, []
+    omnibus = kruskal_wallis([row["_walls"] for row in baselines]) if len(baselines) > 2 else None
+    pairs = []
+    for left_index, left in enumerate(baselines):
+        for right in baselines[left_index + 1 :]:
+            tested = mann_whitney(left["_walls"], right["_walls"])
+            low, high = bootstrap_median_contrast_ci(
+                left["_walls"],
+                right["_walls"],
+                int(statistics["bootstrap_resamples"]),
+                float(statistics["confidence"]),
+                _seed_for(int(statistics["seed"]), left["config_id"] + "/" + right["config_id"]),
+                ratio=True,
+            )
+            pairs.append(
+                {
+                    "first": left["config_id"],
+                    "second": right["config_id"],
+                    "first_algorithm": left["algorithm"],
+                    "second_algorithm": right["algorithm"],
+                    "median_ratio": left["median_ms"] / right["median_ms"],
+                    "median_ratio_ci_low": low,
+                    "median_ratio_ci_high": high,
+                    "mann_whitney_u": tested["u"],
+                    "p_value": tested["p_value"],
+                    "cliffs_delta": tested["cliffs_delta"],
+                    "cliffs_magnitude": cliffs_magnitude(tested["cliffs_delta"]),
+                }
+            )
+    for pair, adjusted in zip(pairs, holm_adjust([pair["p_value"] for pair in pairs])):
+        pair["p_holm"] = adjusted
+    return omnibus, pairs
 
 
 def _hash_table(rows: list[dict]) -> list[dict]:
@@ -151,6 +224,8 @@ def _concurrent_table(rows: list[dict]) -> list[dict]:
         first = group[0]
         item = {
             "algorithm": first["algorithm"],
+            "batch_overhead_ms": None,
+            "batch_wall_ms": None,
             "config_id": config_id,
             "cpu_seconds": None,
             "median_ms": None,
@@ -158,10 +233,11 @@ def _concurrent_table(rows: list[dict]) -> list[dict]:
             "p95_ms": None,
             "parameter_name": first["parameter_name"],
             "parameter_value": first["parameter_value"],
-            "peak_rss_mib": None,
             "pool": pool,
+            "pool_startup_ms": None,
             "reason": first.get("reason"),
             "roles": first.get("roles") or [],
+            "shared_process_peak_rss_mib": None,
             "skipped": skipped,
             "throughput_per_second": None,
             "workers": workers,
@@ -172,16 +248,38 @@ def _concurrent_table(rows: list[dict]) -> list[dict]:
             batch_wall_s = first["batch_wall_ns"] / 1e9
             item.update(
                 {
+                    # Wall time not covered by verification work if the workers were always busy.
+                    "batch_overhead_ms": batch_wall_s * 1000 - sum(walls) / workers,
+                    "batch_wall_ms": batch_wall_s * 1000,
                     "cpu_seconds": first.get("cpu_seconds"),
                     "median_ms": median(walls) if walls else None,
                     "n": len(ok_rows),
                     "p95_ms": percentile(walls, 95) if walls else None,
-                    "peak_rss_mib": first["peak_rss"] / MIB,
+                    "pool_startup_ms": None if first.get("pool_startup_ns") is None else first["pool_startup_ns"] / 1e6,
+                    "shared_process_peak_rss_mib": first["peak_rss"] / MIB,
                     "throughput_per_second": (len(ok_rows) / batch_wall_s) if batch_wall_s else 0.0,
                 }
             )
         table.append(item)
     return table
+
+
+def _concurrent_memory_index(rows: list[dict]) -> dict[tuple, dict]:
+    """Fresh-process peak growth while the reference number of verifications run at once."""
+    grouped: dict[tuple, list[dict]] = {}
+    for row in rows:
+        grouped.setdefault((row["config_id"], row.get("workers")), []).append(row)
+    index = {}
+    for key, group in grouped.items():
+        measured = [row for row in group if row.get("ok") is True and not row.get("skipped")]
+        configured = next((row["configured_memory_bytes"] for row in group if row.get("configured_memory_bytes") is not None), None)
+        index[key] = {
+            "configured_total_mib": None if configured is None else configured * key[1] / MIB,
+            "fresh_peak_delta_mib": median([row["delta_rss"] for row in measured]) / MIB if measured else None,
+            "n": len(measured),
+            "skipped": not measured,
+        }
+    return index
 
 
 def _style():
@@ -208,49 +306,139 @@ def _save(plt, fig, path: Path) -> None:
     plt.close(fig)
 
 
-def _plot_rq1(plt, baselines: list[dict], path: Path) -> None:
+def _error_bars(rows: list[dict], value: str, low: str, high: str):
+    if any(row.get(low) is None for row in rows):
+        return None
+    return [
+        [row[value] - row[low] for row in rows],
+        [row[high] - row[value] for row in rows],
+    ]
+
+
+def _plot_rq1(plt, baselines: list[dict], path: Path, title: str = "Baseline verification latency") -> None:
     labels = [display_name(row["algorithm"]) for row in baselines]
     fig, ax = plt.subplots(figsize=(8, 4.4))
     positions = list(range(len(labels)))
     width = 0.36
-    ax.bar([p - width / 2 for p in positions], [row["median_ms"] for row in baselines], width, label="Median", color="#0072B2")
-    ax.bar([p + width / 2 for p in positions], [row["p95_ms"] for row in baselines], width, label="p95", color="#D55E00")
+    error_style = {"capsize": 4, "ecolor": "#333333", "elinewidth": 1}
+    ax.bar(
+        [p - width / 2 for p in positions],
+        [row["median_ms"] for row in baselines],
+        width,
+        yerr=_error_bars(baselines, "median_ms", "median_ci_low", "median_ci_high"),
+        error_kw=error_style,
+        label="Median",
+        color="#0072B2",
+    )
+    ax.bar(
+        [p + width / 2 for p in positions],
+        [row["p95_ms"] for row in baselines],
+        width,
+        yerr=_error_bars(baselines, "p95_ms", "p95_ci_low", "p95_ci_high"),
+        error_kw=error_style,
+        label="p95",
+        color="#D55E00",
+    )
     ax.set_xticks(positions, labels)
     ax.set_ylabel("Verification latency (ms)")
-    ax.set_title("Baseline verification latency")
+    ax.set_title(title)
     ax.yaxis.grid(True, linestyle="--", alpha=0.4)
     ax.set_axisbelow(True)
-    ax.legend()
+    ax.legend(title="Error bars: 95% bootstrap CI", title_fontsize=9)
     _save(plt, fig, path)
 
 
-def _plot_rq2(plt, rows: list[dict], path: Path) -> None:
+def _axis_label(parameter: str) -> str:
+    return PARAMETER_AXIS.get(parameter, parameter.replace("_", " "))
+
+
+def _plot_rq2(plt, rows: list[dict], path: Path, title_prefix: str = "") -> None:
+    """Verification time and memory as two panels, so each keeps a single y-axis."""
     ordered = sorted(rows, key=lambda row: row["parameter_value"])
     algorithm = ordered[0]["algorithm"]
     parameter = ordered[0]["parameter_name"]
+    name = title_prefix + display_name(algorithm)
     xs = [parameter_axis_value(parameter, row["parameter_value"]) for row in ordered]
+    medians = [row["median_ms"] for row in ordered]
     fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
     color = COLORS[algorithm]
-    axes[0].plot(xs, [row["median_ms"] for row in ordered], marker="o", color=color)
-    axes[1].plot(xs, [row["median_cpu_ms"] for row in ordered], marker="o", color=color, label="CPU")
-    memory = [row.get("median_rss_delta_mib") for row in ordered]
-    if any(value is not None for value in memory):
-        twin = axes[1].twinx()
-        twin.plot(xs, [0 if value is None else value for value in memory], marker="s", color="#000000", label="RSS delta")
-        twin.set_ylabel("Median RSS delta (MiB)")
-    for row, x_value, y_value in zip(ordered, xs, [row["median_ms"] for row in ordered]):
+    axes[0].errorbar(
+        xs,
+        medians,
+        yerr=_error_bars(ordered, "median_ms", "median_ci_low", "median_ci_high"),
+        marker="o",
+        color=color,
+        linewidth=2,
+        capsize=3,
+        label="Wall time, median (95% CI)",
+    )
+    cpu = [row["median_cpu_ms"] for row in ordered]
+    # Hollow markers keep the wall-time points visible where the two series coincide.
+    axes[0].plot(
+        xs,
+        cpu,
+        marker="s",
+        markersize=10,
+        markerfacecolor="none",
+        color="#333333",
+        linestyle=":",
+        linewidth=1.5,
+        label="CPU time, median",
+    )
+    if all(wall and abs(c / wall - 1.0) < 0.03 for c, wall in zip(cpu, medians)):
+        axes[0].text(
+            0.97, 0.04, "CPU and wall time coincide (CPU-bound)", transform=axes[0].transAxes, ha="right", fontsize=8, color="#333333"
+        )
+    for row, x_value, y_value in zip(ordered, xs, medians):
         if row["reduced_sample"]:
             axes[0].annotate("reduced n", (x_value, y_value), textcoords="offset points", xytext=(0, 7), ha="center", fontsize=8)
-    axes[0].set_xlabel(parameter.replace("_", " "))
-    axes[1].set_xlabel(parameter.replace("_", " "))
-    if parameter == "memory_kib":
-        axes[0].set_xlabel("Memory (MiB)")
-        axes[1].set_xlabel("Memory (MiB)")
-    axes[0].set_ylabel("Median verification latency (ms)")
-    axes[1].set_ylabel("Median CPU time (ms)")
-    axes[0].set_title(display_name(algorithm))
-    axes[1].set_title("CPU and memory")
+    axes[0].set_ylabel("Verification time (ms)")
+    axes[0].set_title(f"{name}: verification time")
+    axes[0].legend(fontsize=9)
+
+    measured = [row.get("median_rss_delta_mib") for row in ordered]
+    configured = [row.get("configured_memory_mib") for row in ordered]
+    if any(value is not None for value in measured):
+        points = [(x_value, value) for x_value, value in zip(xs, measured) if value is not None]
+        axes[1].plot(
+            [point[0] for point in points],
+            [point[1] for point in points],
+            marker="o",
+            color=color,
+            linewidth=2,
+            label="Measured peak growth, median",
+        )
+    if any(value is not None for value in configured):
+        axes[1].plot(
+            xs,
+            configured,
+            marker="s",
+            markersize=10,
+            markerfacecolor="none",
+            color="#333333",
+            linestyle=":",
+            linewidth=1.5,
+            label="Configured memory",
+        )
+    else:
+        axes[1].text(
+            0.5, 0.9, "No memory-cost parameter", transform=axes[1].transAxes, ha="center", va="top", fontsize=9, color="#555555"
+        )
+    # Growth of a few MiB is measurement noise; a fixed minimum range keeps it from looking like a trend.
+    shown = [value for value in measured + configured if value is not None]
+    axes[1].set_ylim(0, max([5.0] + [value * 1.1 for value in shown]))
+    axes[1].set_ylabel("Memory during one verification (MiB)")
+    axes[1].set_title(f"{name}: memory")
+    if axes[1].get_legend_handles_labels()[0]:
+        axes[1].legend(fontsize=9, loc="lower right")
     for axis in axes:
+        axis.set_xlabel(_axis_label(parameter))
+        if parameter == "n":
+            axis.set_xscale("log", base=2)
+            axis.set_xticks(xs, [f"$2^{{{int(math.log2(x_value))}}}$" for x_value in xs])
+            axis.minorticks_off()
+        elif parameter in {"cost", "time_cost"}:
+            axis.set_xticks(xs, [str(int(x_value)) for x_value in xs])
         axis.yaxis.grid(True, linestyle="--", alpha=0.4)
         axis.set_axisbelow(True)
     _save(plt, fig, path)
@@ -388,6 +576,141 @@ def _observe_bcrypt(records: list[dict]) -> list[str]:
     return lines
 
 
+def _p_phrase(value: float) -> str:
+    shown = _fmt_p(value)
+    return f"p {shown}" if shown.startswith("<") else f"p = {shown}"
+
+
+def _ci_text(row: dict, low: str, high: str) -> str:
+    if row.get(low) is None:
+        return ""
+    return f"{row[low]:.2f} to {row[high]:.2f}"
+
+
+def _baseline_table(baselines: list[dict], confidence_text: str) -> str:
+    return _md_table(
+        ["Algorithm", "Median ms", f"{confidence_text} CI", "p95 ms", f"{confidence_text} CI", "CPU ms", "RSS delta MiB", "Configured MiB", "n"],
+        [
+            [
+                display_name(row["algorithm"]),
+                _fmt(row["median_ms"]),
+                _ci_text(row, "median_ci_low", "median_ci_high"),
+                _fmt(row["p95_ms"]),
+                _ci_text(row, "p95_ci_low", "p95_ci_high"),
+                _fmt(row["median_cpu_ms"]),
+                _fmt(row.get("median_rss_delta_mib"), 1),
+                _fmt(row.get("configured_memory_mib"), 1),
+                str(row["n"]),
+            ]
+            for row in baselines
+        ],
+    )
+
+
+def _test_lines(omnibus: dict | None, pairs: list[dict], confidence_text: str) -> list[str]:
+    if not pairs:
+        return []
+    lines = ["### Statistical tests", ""]
+    if omnibus:
+        lines.append(
+            f"Kruskal-Wallis across the baselines: H = {omnibus['h']:.1f}, {_p_phrase(omnibus['p_value'])}, "
+            f"epsilon-squared = {omnibus['epsilon_squared']:.3f}."
+        )
+        lines.append("")
+    lines.append(
+        _md_table(
+            ["Comparison", "Median ratio", f"{confidence_text} CI", "Mann-Whitney p (Holm)", "Cliff's delta", "Magnitude"],
+            [
+                [
+                    f"{display_name(pair['first_algorithm'])} / {display_name(pair['second_algorithm'])}",
+                    f"{pair['median_ratio']:.3f}",
+                    f"{pair['median_ratio_ci_low']:.3f} to {pair['median_ratio_ci_high']:.3f}",
+                    _fmt_p(pair["p_holm"]),
+                    f"{pair['cliffs_delta']:+.3f}",
+                    pair["cliffs_magnitude"],
+                ]
+                for pair in pairs
+            ],
+        )
+    )
+    lines.append("")
+    lines.append(
+        "The median ratio is the first algorithm's median divided by the second's. Cliff's delta is the probability that a "
+        "verification of the first algorithm is slower minus the probability that it is faster. With this many verifications "
+        "a p-value detects even small differences, so the ratio and Cliff's delta describe the size. "
+        "The bootstrap treats verifications as exchangeable. Repeats of the same password ran in sequence, so slow drift "
+        "within a configuration is not modeled."
+    )
+    return lines
+
+
+def _sweep_lines(sweep: list[dict]) -> list[str]:
+    first, last = sweep[0], sweep[-1]
+
+    def shown(row: dict) -> str:
+        interval = _ci_text(row, "median_ci_low", "median_ci_high")
+        return f"{row['median_ms']:.2f} ms" + (f" (CI {interval})" if interval else "")
+
+    lines = [
+        f"For {display_name(first['algorithm'])}, raising {first['parameter_name']} from "
+        f"{_param_text(first['parameter_name'], first['parameter_value'])} to "
+        f"{_param_text(last['parameter_name'], last['parameter_value'])} changed median verification latency from "
+        f"{shown(first)} to {shown(last)}."
+    ]
+    reduced = [row for row in sweep if row["reduced_sample"]]
+    if reduced:
+        listed = ", ".join(row["config_id"] for row in reduced)
+        lines.append(f"Reduced samples, because the pilot exceeded the registered threshold: {listed}.")
+    return lines
+
+
+def _process_pool_lines(concurrent: list[dict], cfg) -> list[str]:
+    process_rows = [row for row in concurrent if row["pool"] == "process" and not row["skipped"]]
+    if not process_rows:
+        return ["The process-pool check has not been collected."]
+    lines = []
+    for process_row in process_rows:
+        thread_row = next(
+            (
+                row
+                for row in concurrent
+                if row["pool"] == "thread"
+                and row["config_id"] == process_row["config_id"]
+                and row["workers"] == process_row["workers"]
+                and not row["skipped"]
+            ),
+            None,
+        )
+        if thread_row is None or not thread_row["throughput_per_second"] or process_row["throughput_per_second"] is None:
+            lines.append(f"- {process_row['config_id']}: the thread-pool comparison was not available.")
+            continue
+        relative = abs(thread_row["throughput_per_second"] - process_row["throughput_per_second"]) / thread_row["throughput_per_second"]
+        outside = relative > cfg.process_pool_agreement_ratio
+        lines.append(
+            f"- {process_row['config_id']}: thread pool {thread_row['throughput_per_second']:.1f}/s, "
+            f"process pool {process_row['throughput_per_second']:.1f}/s, relative difference {relative:.1%}, "
+            f"{'outside' if outside else 'within'} the registered {cfg.process_pool_agreement_ratio:.0%} agreement range."
+        )
+        lines.append(
+            f"  Per-verification median: thread pool {thread_row['median_ms']:.2f} ms, process pool {process_row['median_ms']:.2f} ms. "
+            f"Batch time not explained by verification work (batch wall time minus summed verification time / workers): "
+            f"thread pool {thread_row['batch_overhead_ms']:.1f} ms, process pool {process_row['batch_overhead_ms']:.1f} ms "
+            f"of {thread_row['batch_wall_ms']:.0f} ms and {process_row['batch_wall_ms']:.0f} ms batches."
+        )
+        if process_row.get("pool_startup_ms") is None:
+            lines.append(
+                "  This run was collected before pool workers were started ahead of the clock, so process startup is inside the timed batch."
+            )
+        else:
+            lines.append(
+                f"  Worker startup, completed before the clock started and including the warm-up tasks: "
+                f"thread pool {thread_row['pool_startup_ms']:.1f} ms, process pool {process_row['pool_startup_ms']:.1f} ms."
+            )
+        if outside:
+            lines.append("  The difference is outside the registered range. It is reported as a finding and the measurement is kept.")
+    return lines
+
+
 def _environment_lines(results_dir: Path) -> list[str]:
     path = results_dir / "environment.json"
     if not path.exists():
@@ -408,19 +731,23 @@ def _environment_lines(results_dir: Path) -> list[str]:
     ]
 
 
-def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
+def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str, statistics: dict | None = None) -> int:
+    statistics = statistics or DEFAULT_STATISTICS
+    confidence_text = f"{float(statistics['confidence']):.0%}"
     results_dir.mkdir(parents=True, exist_ok=True)
     figures = results_dir / "figures"
     figures.mkdir(parents=True, exist_ok=True)
     latency_rows = read_jsonl(raw_dir / "latency.jsonl")
     memory_rows = read_jsonl(raw_dir / "memory.jsonl")
     concurrent_rows = read_jsonl(raw_dir / "concurrent.jsonl")
+    concurrent_memory_rows = read_jsonl(raw_dir / "concurrent_memory.jsonl")
     bcrypt_rows = read_jsonl(raw_dir / "bcrypt_length.jsonl")
     errors = read_jsonl(raw_dir / "errors.jsonl")
     for filename, rows in (
         ("latency.jsonl", latency_rows),
         ("memory.jsonl", memory_rows),
         ("concurrent.jsonl", concurrent_rows),
+        ("concurrent_memory.jsonl", concurrent_memory_rows),
         ("bcrypt_length.jsonl", bcrypt_rows),
     ):
         _check_design(rows, design, filename)
@@ -429,7 +756,9 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
     hashes = _hash_table(latency_rows)
     memory_index = _memory_index(memory_rows)
     _attach_memory(latency, memory_index)
+    _attach_intervals(latency, statistics)
     concurrent = _concurrent_table(concurrent_rows)
+    concurrent_memory = _concurrent_memory_index(concurrent_memory_rows)
     order = {name: index for index, name in enumerate(cfg.algorithms)}
     latency.sort(key=lambda row: (order[row["algorithm"]], row["parameter_value"]))
     concurrent.sort(key=lambda row: (order[row["algorithm"]], row["parameter_value"], row["pool"], row["workers"]))
@@ -455,7 +784,11 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
         "parameter_value",
         "n",
         "median_ms",
+        "median_ci_low",
+        "median_ci_high",
         "p95_ms",
+        "p95_ci_low",
+        "p95_ci_high",
         "median_cpu_ms",
         "configured_memory_mib",
         "median_rss_delta_mib",
@@ -475,13 +808,41 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
         "median_ms",
         "p95_ms",
         "throughput_per_second",
-        "peak_rss_mib",
         "cpu_seconds",
+        "batch_wall_ms",
+        "batch_overhead_ms",
+        "pool_startup_ms",
+        "shared_process_peak_rss_mib",
         "parameter_name",
         "parameter_value",
         "reason",
     ]
     _write_csv(results_dir / "rq3_concurrency.csv", concurrent, concurrent_columns)
+    _write_csv(
+        results_dir / "rq3_concurrent_memory.csv",
+        [
+            {"config_id": config_id, "workers": workers, **info}
+            for (config_id, workers), info in sorted(concurrent_memory.items(), key=lambda item: (str(item[0][0]), item[0][1] or 0))
+        ],
+        ["config_id", "workers", "n", "skipped", "fresh_peak_delta_mib", "configured_total_mib"],
+    )
+    omnibus, pairs = _baseline_tests(baselines, statistics)
+    _write_csv(
+        results_dir / "rq1_statistics.csv",
+        pairs,
+        [
+            "first",
+            "second",
+            "median_ratio",
+            "median_ratio_ci_low",
+            "median_ratio_ci_high",
+            "mann_whitney_u",
+            "p_value",
+            "p_holm",
+            "cliffs_delta",
+            "cliffs_magnitude",
+        ],
+    )
     _write_csv(
         results_dir / "bcrypt_length.csv",
         bcrypt_rows,
@@ -546,29 +907,17 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
         lines.append(
             "Under the baseline configurations, median verification latency was "
             + "; ".join(
-                f"{display_name(row['algorithm'])} {row['median_ms']:.2f} ms (p95 {row['p95_ms']:.2f} ms, CPU {row['median_cpu_ms']:.2f} ms)"
+                f"{display_name(row['algorithm'])} {row['median_ms']:.2f} ms "
+                f"({confidence_text} CI {row['median_ci_low']:.2f} to {row['median_ci_high']:.2f}; "
+                f"p95 {row['p95_ms']:.2f} ms, CPU {row['median_cpu_ms']:.2f} ms)"
                 for row in baselines
             )
             + "."
         )
         lines.append("")
-        lines.append(
-            _md_table(
-                ["Algorithm", "Median ms", "p95 ms", "CPU ms", "RSS delta MiB", "Configured MiB", "n"],
-                [
-                    [
-                        display_name(row["algorithm"]),
-                        _fmt(row["median_ms"]),
-                        _fmt(row["p95_ms"]),
-                        _fmt(row["median_cpu_ms"]),
-                        _fmt(row.get("median_rss_delta_mib"), 1),
-                        _fmt(row.get("configured_memory_mib"), 1),
-                        str(row["n"]),
-                    ]
-                    for row in baselines
-                ],
-            )
-        )
+        lines.append(_baseline_table(baselines, confidence_text))
+        lines.append("")
+        lines.extend(_test_lines(omnibus, pairs, confidence_text))
     else:
         lines.append("Latency measurements have not been collected.")
     lines.append("")
@@ -581,19 +930,12 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
         )
         if len(sweep) < 2:
             continue
-        first, last = sweep[0], sweep[-1]
-        lines.append(
-            f"For {display_name(algorithm)}, raising {first['parameter_name']} from "
-            f"{_param_text(first['parameter_name'], first['parameter_value'])} to "
-            f"{_param_text(last['parameter_name'], last['parameter_value'])} changed median verification latency from "
-            f"{first['median_ms']:.2f} ms to {last['median_ms']:.2f} ms."
-        )
-        reduced = [row for row in sweep if row["reduced_sample"]]
-        if reduced:
-            listed = ", ".join(row["config_id"] for row in reduced)
-            lines.append(f"Reduced samples, because the pilot exceeded the registered threshold: {listed}.")
+        lines.extend(_sweep_lines(sweep))
     if not any("sweep" in row["roles"] for row in latency):
         lines.append("Parameter-sweep measurements have not been collected.")
+    else:
+        lines.append("")
+        lines.append(f"Intervals for every sweep point are in rq2_parameter_sweep.csv ({confidence_text} bootstrap).")
     lines.append("")
 
     lines.extend(["## Research question 3", ""])
@@ -614,15 +956,17 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
         if missing:
             lines.append("Not measured at the reference load: " + ", ".join(missing) + ".")
         lines.append("")
+        workers = cfg.reference_workers
         lines.append(
             _md_table(
-                ["Configuration", "p95 ms", "Per second", "Peak RSS MiB", "Budget A", "Budget B"],
+                ["Configuration", "p95 ms", "Per second", f"Memory MiB, {workers} at once", f"Configured MiB x {workers}", "Budget A", "Budget B"],
                 [
                     [
                         row["config_id"],
                         _fmt(row["p95_ms"]),
                         _fmt(row["throughput_per_second"], 1),
-                        _fmt(row["peak_rss_mib"], 1),
+                        _fmt(concurrent_memory.get((row["config_id"], workers), {}).get("fresh_peak_delta_mib"), 1),
+                        _fmt(concurrent_memory.get((row["config_id"], workers), {}).get("configured_total_mib"), 1),
                         "yes" if row["meets_a"] else "no",
                         "yes" if row["meets_b"] else "no",
                     ]
@@ -632,33 +976,23 @@ def run_analyze(cfg, raw_dir: Path, results_dir: Path, design: str) -> int:
             )
         )
         lines.append("")
+        if concurrent_memory:
+            lines.append(
+                f"The memory column is the median peak growth of a fresh process while {workers} verifications ran at once "
+                f"(rq3_concurrent_memory.csv). It is measured separately from the throughput batches. "
+                "The throughput batches reuse one process, so their process-tree RSS (shared_process_peak_rss_mib in "
+                "rq3_concurrency.csv) includes memory retained from earlier configurations and is not an isolated measurement."
+            )
+        else:
+            lines.append(
+                "This run has no fresh-process concurrent memory measurement, so the memory column is empty. "
+                "The process-tree RSS in rq3_concurrency.csv (shared_process_peak_rss_mib) includes memory retained from "
+                "earlier configurations and is not an isolated measurement."
+            )
+        lines.append("")
         lines.append("### Process-pool check")
         lines.append("")
-        process_rows = [row for row in concurrent if row["pool"] == "process" and not row["skipped"]]
-        if not process_rows:
-            lines.append("The process-pool check has not been collected.")
-        for process_row in process_rows:
-            thread_row = next(
-                (
-                    row
-                    for row in concurrent
-                    if row["pool"] == "thread"
-                    and row["config_id"] == process_row["config_id"]
-                    and row["workers"] == process_row["workers"]
-                    and not row["skipped"]
-                ),
-                None,
-            )
-            if thread_row is None or not thread_row["throughput_per_second"] or process_row["throughput_per_second"] is None:
-                lines.append(f"{process_row['config_id']}: the thread-pool comparison was not available.")
-                continue
-            relative = abs(thread_row["throughput_per_second"] - process_row["throughput_per_second"]) / thread_row["throughput_per_second"]
-            relation = "within" if relative <= cfg.process_pool_agreement_ratio else "outside"
-            lines.append(
-                f"{process_row['config_id']}: thread pool {thread_row['throughput_per_second']:.1f}/s, "
-                f"process pool {process_row['throughput_per_second']:.1f}/s, relative difference {relative:.1%}, "
-                f"{relation} the registered {cfg.process_pool_agreement_ratio:.0%} agreement range."
-            )
+        lines.extend(_process_pool_lines(concurrent, cfg))
     else:
         lines.append("Concurrent measurements have not been collected.")
     lines.append("")

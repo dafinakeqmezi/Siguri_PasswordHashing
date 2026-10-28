@@ -22,6 +22,9 @@ def _require(mapping: dict, key: str, where: str):
     return mapping[key]
 
 
+REGISTERED_ALGORITHMS = ("argon2id", "bcrypt", "pbkdf2_sha256")
+
+
 @dataclass
 class ExperimentConfig:
     raw: dict
@@ -48,7 +51,9 @@ class ExperimentConfig:
     bcrypt_lengths: list[int]
 
     @classmethod
-    def from_dict(cls, raw: dict, config_sha256: str) -> "ExperimentConfig":
+    def from_dict(
+        cls, raw: dict, config_sha256: str, expected_algorithms: tuple[str, ...] | None = REGISTERED_ALGORITHMS
+    ) -> "ExperimentConfig":
         passwords = _require(raw, "passwords", "experiment")
         budgets = _require(raw, "latency_budgets_ms", "experiment")
         throughput = _require(raw, "throughput", "experiment")
@@ -75,9 +80,8 @@ class ExperimentConfig:
             raise ValueError("concurrency.workers must contain positive integers")
         if reference_workers not in workers:
             raise ValueError("throughput.reference_workers must be one of concurrency.workers")
-        expected = ("argon2id", "bcrypt", "pbkdf2_sha256")
-        if tuple(algorithms) != expected:
-            raise ValueError(f"algorithms must be exactly {', '.join(expected)} in that order")
+        if expected_algorithms is not None and tuple(algorithms) != expected_algorithms:
+            raise ValueError(f"algorithms must be exactly {', '.join(expected_algorithms)} in that order")
 
         return cls(
             raw=raw,

@@ -57,7 +57,7 @@ def run_latency(cfg, raw_dir, results_dir, design: str) -> int:
     failures = 0
     for index, case in enumerate(cases, start=1):
         try:
-            _run_case(cfg, case, passwords, design, latency_path, memory_path, results_dir, index, len(cases))
+            run_case(cfg, case, passwords, design, latency_path, memory_path, results_dir, index, len(cases))
         except Exception as exc:
             failures += 1
             append_jsonl(
@@ -74,7 +74,7 @@ def run_latency(cfg, raw_dir, results_dir, design: str) -> int:
     return failures
 
 
-def _run_case(cfg, case, passwords, design, latency_path, memory_path, results_dir, index, total) -> None:
+def run_case(cfg, case, passwords, design, latency_path, memory_path, results_dir, index, total) -> None:
     hasher = make_hasher(case.algorithm, case.params)
     prepared: list[Prepared] = []
     for item in passwords:

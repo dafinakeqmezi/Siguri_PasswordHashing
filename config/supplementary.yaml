@@ -1,0 +1,123 @@
+# Supplementary experiments, declared on 2026-10-28.
+# They were added after the first registered runs (runs/windows-2026-10-25 and
+# runs/macos-2026-10-27) had been inspected. They extend the proposal. They do
+# not replace config/experiment.yaml, whose rules and budgets A and B still
+# answer the three research questions.
+# Every table and figure built from this file is labeled "supplementary".
+# The password corpus, warmup, pilot, and slow-sample rules come from experiment.yaml.
+# Fix these values before the final run. Do not edit them after looking at its results.
+
+algorithms:
+  # Argon2id time cost at the registered 19 MiB memory. Proposal question 2 swept memory only.
+  argon2id:
+    baseline:
+      memory_kib: 19456
+      time_cost: 2
+      parallelism: 1
+      hash_len: 32
+      salt_len: 16
+    sweep:
+      parameter: time_cost
+      values: [1, 2, 3, 4]
+      fixed:
+        memory_kib: 19456
+        parallelism: 1
+        hash_len: 32
+        salt_len: 16
+  # Fourth algorithm (hashlib.scrypt, OpenSSL). Baseline is the OWASP minimum:
+  # N=2^17, r=8, p=1, which uses 128 MiB.
+  scrypt:
+    baseline:
+      n: 131072
+      r: 8
+      p: 1
+      hash_len: 32
+      salt_len: 16
+    sweep:
+      parameter: n
+      values: [32768, 65536, 131072, 262144]
+      fixed:
+        r: 8
+        p: 1
+        hash_len: 32
+        salt_len: 16
+
+concurrency:
+  # Thread-pool worker counts added to the registered 1, 2, 4, 8 for the 14
+  # registered configurations. scrypt is measured at the registered counts and these.
+  extra_workers: [16, 32]
+  # Saturation point: the first worker count at which throughput rises by less
+  # than saturation_gain over the previous count, or p95 exceeds
+  # p95_growth_limit times the 1-worker p95.
+  saturation_gain: 0.10
+  p95_growth_limit: 2.0
+
+# Tighter p95 budgets at the registered reference load (4 workers) and the
+# registered minimum of 10 verifications per second.
+tight_budgets_ms: [100, 250]
+
+equal_latency:
+  # Each algorithm is calibrated to each target median verification latency,
+  # then measured with the registered warmup and pilot rules.
+  targets_ms: [100, 250]
+  measured_repeats: 10
+  calibration_samples: 5
+  calibration_rounds: 6
+  tolerance: 0.05
+  tune:
+    argon2id:
+      parameter: memory_kib
+      kind: linear
+      start: 19456
+      step: 1024
+      fixed:
+        time_cost: 2
+        parallelism: 1
+        hash_len: 32
+        salt_len: 16
+    bcrypt:
+      # Each cost step doubles the work, so only the nearest cost can be chosen.
+      parameter: cost
+      kind: doubling
+      values: [8, 9, 10, 11, 12, 13, 14, 15]
+      start: 10
+      fixed: {}
+    pbkdf2_sha256:
+      parameter: iterations
+      kind: linear
+      start: 600000
+      step: 10000
+      fixed:
+        hash_len: 32
+        salt_len: 16
+    scrypt:
+      # N must be a power of two, so only the nearest N can be chosen.
+      parameter: n
+      kind: doubling
+      values: [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288]
+      start: 16384
+      fixed:
+        r: 8
+        p: 1
+        hash_len: 32
+        salt_len: 16
+
+wrong_password:
+  # Correct and wrong-password verifications per password at each baseline,
+  # interleaved in a seeded random order.
+  repeats: 10
+  warmup: 10
+  # The two medians are called equivalent when the 95% bootstrap interval of
+  # their difference lies inside this fraction of the correct-password median.
+  equivalence_margin: 0.02
+
+input_handling:
+  # Password lengths for the HMAC pre-hash check. SHA-256 has a 64-byte block.
+  long_lengths: [64, 65, 100]
+  # Password length for the trailing NUL check.
+  short_length: 20
+
+statistics:
+  bootstrap_resamples: 10000
+  confidence: 0.95
+  seed: 20261028

@@ -28,6 +28,18 @@ def _read_json(line_queue: "queue.Queue[str]", timeout: float) -> dict:
 
 
 def probe_verify_rss(algorithm: str, params: dict, password: str, encoded: str, timeout: float = 180) -> dict:
+    return _probe({"algorithm": algorithm, "params": params, "password": password, "encoded": encoded}, timeout)
+
+
+def probe_concurrent_rss(algorithm: str, params: dict, tasks: list[dict], timeout: float = 180) -> dict:
+    """Peak growth while len(tasks) verifications run at once in one fresh process."""
+    if not tasks:
+        raise ValueError("probe_concurrent_rss requires at least one task")
+    job_tasks = [{"password": task["password"], "encoded": task["encoded"]} for task in tasks]
+    return _probe({"algorithm": algorithm, "params": params, "tasks": job_tasks}, timeout)
+
+
+def _probe(job: dict, timeout: float) -> dict:
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     env["OMP_NUM_THREADS"] = "1"
@@ -62,7 +74,7 @@ def probe_verify_rss(algorithm: str, params: dict, password: str, encoded: str, 
     stdout_thread.start()
     stderr_thread.start()
     try:
-        process.stdin.write(json.dumps({"algorithm": algorithm, "params": params, "password": password, "encoded": encoded}) + "\n")
+        process.stdin.write(json.dumps(job) + "\n")
         process.stdin.flush()
         ready = _read_json(lines, timeout)
         if ready.get("event") != "ready":

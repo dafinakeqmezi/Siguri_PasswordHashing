@@ -10,9 +10,11 @@ from pathlib import Path
 
 from password_benchmark.paths import ROOT
 
+RUN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}")
+
 
 def save_run(name: str, root: Path = ROOT) -> Path:
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", name):
+    if not RUN_NAME.fullmatch(name):
         raise ValueError("Run name must contain only letters, digits, hyphens, or underscores (1–80 characters).")
     destination = root / "runs" / name
     if destination.exists():

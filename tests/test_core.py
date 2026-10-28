@@ -1,5 +1,6 @@
 """Checks for the benchmark harness. These are not the experimental results."""
 
+import json
 import unittest
 import tempfile
 from pathlib import Path
@@ -16,8 +17,9 @@ from password_benchmark.passwords import generate_passwords
 from password_benchmark.paths import CONFIG_PATH
 from password_benchmark.stats import median, meets_budget, percentile
 from password_benchmark.environment import _cpu_name, _power_scheme, _cpu_frequency
-from password_benchmark.mem_worker import _peak_bytes
+from password_benchmark.mem_worker import _linux_vmhwm, _peak_bytes
 from password_benchmark.archive import save_run
+from password_benchmark.compare import compare_runs
 
 
 class ArchiveTests(unittest.TestCase):
@@ -41,6 +43,56 @@ class ArchiveTests(unittest.TestCase):
             (root / "results/RUN_IN_PROGRESS").touch()
             with self.assertRaises(RuntimeError):
                 save_run("busy", root)
+
+
+class CompareTests(unittest.TestCase):
+    def test_two_saved_runs_are_placed_side_by_side(self):
+        cfg = load_config()
+        baseline = "algorithm,config_id,parameter_name,parameter_value,median_ms,p95_ms\n"
+        sweep = baseline
+        concurrent = "algorithm,config_id,pool,workers,skipped,p95_ms,throughput_per_second,parameter_name,parameter_value\n"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name, scale, bcrypt_p95 in (("mac", 1.0, 400.0), ("win", 2.0, 600.0)):
+                results = root / "runs" / name / "results"
+                results.mkdir(parents=True)
+                (root / "runs" / name / "config").mkdir()
+                (root / "runs" / name / "config" / "experiment.yaml").write_bytes(
+                    b"a: 1\r\n" if name == "win" else b"a: 1\n"
+                )
+                (results / "environment.json").write_text(
+                    json.dumps({"config_sha256": name, "cpu_name": name, "platform": name, "python": "3.12.0 x"}),
+                    encoding="utf-8",
+                )
+                (results / "rq1_baseline.csv").write_text(
+                    baseline
+                    + f"argon2id,argon2id-a,memory_kib,19456,{10 * scale},{12 * scale}\n"
+                    + f"bcrypt,bcrypt-c10,cost,10,{40 * scale},{45 * scale}\n",
+                    encoding="utf-8",
+                )
+                (results / "rq2_parameter_sweep.csv").write_text(
+                    sweep + f"bcrypt,bcrypt-c10,cost,10,{40 * scale},{45 * scale}\nbcrypt,bcrypt-c11,cost,11,{80 * scale},{90 * scale}\n",
+                    encoding="utf-8",
+                )
+                (results / "rq3_concurrency.csv").write_text(
+                    concurrent
+                    + f"bcrypt,bcrypt-c10,thread,{cfg.reference_workers},False,{bcrypt_p95},50,cost,10\n"
+                    + f"bcrypt,bcrypt-c11,thread,{cfg.reference_workers},True,,,cost,11\n",
+                    encoding="utf-8",
+                )
+            destination = compare_runs(["mac", "win"], root)
+            summary = (destination / "comparison.md").read_text(encoding="utf-8")
+            self.assertIn("identical after line-ending normalization", summary)
+            self.assertIn("is the same on every machine", summary)
+            self.assertIn("| bcrypt / Argon2id | 4.00x | 4.00x |", summary)
+            self.assertIn("2.00x on mac, 2.00x on win", summary)
+            self.assertIn("agree for 1 of 2 configurations", summary)
+            self.assertIn("not measured", summary)
+            self.assertIn("before 2026-10-28 corrections", summary)
+            with self.assertRaises(ValueError):
+                compare_runs(["mac"], root)
+            with self.assertRaises(ValueError):
+                compare_runs(["mac", "../win"], root)
 
 
 class PlatformTests(unittest.TestCase):
@@ -74,11 +126,22 @@ class PlatformTests(unittest.TestCase):
         resource = Mock()
         resource.getrusage.return_value.ru_maxrss = 123456
         with patch.dict("sys.modules", {"resource": resource}):
-            for system, expected in (("Darwin", 123456), ("Linux", 123456 * 1024)):
+            for system, expected in (("Darwin", 123456), ("FreeBSD", 123456 * 1024)):
                 with self.subTest(system=system), patch(
                     "password_benchmark.mem_worker.platform.system", return_value=system
                 ):
                     self.assertEqual(_peak_bytes(), expected)
+        # Linux reads VmHWM, because ru_maxrss survives fork and exec.
+        with patch("password_benchmark.mem_worker.platform.system", return_value="Linux"), patch(
+            "password_benchmark.mem_worker._linux_vmhwm", return_value=4096
+        ):
+            self.assertEqual(_peak_bytes(), 4096)
+
+    def test_linux_vmhwm_parsing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            status = Path(temporary) / "status"
+            status.write_text("Name:\tpython\nVmPeak:\t  900 kB\nVmHWM:\t   1234 kB\nVmRSS:\t  1000 kB\n", encoding="ascii")
+            self.assertEqual(_linux_vmhwm(str(status)), 1234 * 1024)
 
 
 class StatsTests(unittest.TestCase):
@@ -112,6 +175,10 @@ class DesignTests(unittest.TestCase):
         self.assertEqual(len(cases), 14)
         self.assertEqual(sum("baseline" in case.roles for case in cases), 3)
 
+    def test_registered_file_is_unchanged(self):
+        # The hash recorded by the saved runs. .gitattributes keeps LF endings on every OS.
+        self.assertEqual(load_config().config_sha256, "fed42fd6b7c6f09c0870817614bc1d841c6766f99437cbfda8932e9047045aa4")
+
     def test_smoke_config_does_not_rewrite_the_registered_file(self):
         before = CONFIG_PATH.read_bytes()
         cfg = load_config()
@@ -137,6 +204,7 @@ class HasherTests(unittest.TestCase):
             ("argon2id", {"memory_kib": 8192, "time_cost": 1, "parallelism": 1, "hash_len": 32, "salt_len": 16}),
             ("bcrypt", {"cost": 4}),
             ("pbkdf2_sha256", {"iterations": 1000, "hash_len": 32, "salt_len": 16}),
+            ("scrypt", {"n": 1024, "r": 8, "p": 1, "hash_len": 32, "salt_len": 16}),
         ]
         for algorithm, params in cases:
             hasher = make_hasher(algorithm, params)

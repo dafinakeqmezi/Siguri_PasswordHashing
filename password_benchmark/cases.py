@@ -1,19 +1,22 @@
 """Expand the registered parameter grid into concrete configurations."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 DISPLAY_NAMES = {
     "argon2id": "Argon2id",
     "bcrypt": "bcrypt",
     "pbkdf2_sha256": "PBKDF2-HMAC-SHA256",
+    "scrypt": "scrypt",
 }
 
 PARAMETER_AXIS = {
     "memory_kib": "Memory (MiB)",
     "cost": "bcrypt cost",
     "iterations": "PBKDF2 iterations",
+    "n": "scrypt N",
+    "time_cost": "Argon2id time cost (t)",
 }
 
 
@@ -25,6 +28,7 @@ class WorkCase:
     parameter_value: int
     roles: tuple[str, ...]
     config_id: str
+    tags: dict = field(default_factory=dict)
 
 
 def display_name(algorithm: str) -> str:
@@ -38,9 +42,12 @@ def parameter_axis_value(name: str, value: int) -> float:
 
 
 def configured_memory_bytes(params: dict) -> int | None:
-    if "memory_kib" not in params:
-        return None
-    return int(params["memory_kib"]) * 1024
+    if "memory_kib" in params:
+        return int(params["memory_kib"]) * 1024
+    if "n" in params and "r" in params:
+        # scrypt's V array; the per-lane B array (128*r*p bytes) is negligible.
+        return 128 * int(params["n"]) * int(params["r"])
+    return None
 
 
 def make_config_id(algorithm: str, params: dict) -> str:
@@ -50,11 +57,13 @@ def make_config_id(algorithm: str, params: dict) -> str:
         return f"bcrypt-c{params['cost']}"
     if algorithm == "pbkdf2_sha256":
         return f"pbkdf2-sha256-i{params['iterations']}"
+    if algorithm == "scrypt":
+        return f"scrypt-n{params['n']}-r{params['r']}-p{params['p']}"
     raise ValueError(f"Unknown algorithm: {algorithm}")
 
 
 def case_record(case: WorkCase, design: str, config_sha256: str, experiment: str) -> dict:
-    return {
+    record = {
         "algorithm": case.algorithm,
         "config_id": case.config_id,
         "config_sha256": config_sha256,
@@ -66,6 +75,9 @@ def case_record(case: WorkCase, design: str, config_sha256: str, experiment: str
         "roles": list(case.roles),
         "schema_version": 1,
     }
+    if case.tags:
+        record["tags"] = dict(case.tags)
+    return record
 
 
 def _canonical(params: dict) -> str:

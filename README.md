@@ -34,7 +34,29 @@ Budget A is p95 latency at or below 500 ms and at least 10 verifications per sec
 
 Latency reported for the concurrent test is the wall time of `verify()` while the other workers are busy. Throughput is successful verifications divided by the wall time of the batch. The main concurrent measurements use a thread pool, because these libraries release the interpreter lock during the hash. Each baseline is also checked once with a process pool. The registered agreement range is 15 percent relative throughput.
 
+Every pool worker is started before the batch clock starts, and the startup time is recorded separately as `pool_startup_ns`. This correction was made on 2026-10-28. The saved Windows and Mac runs started worker processes inside the timed batch. In the Mac run, per-verification medians in the process pool matched or beat the thread pool (Argon2id 16.5 ms against 17.2 ms), but each 50-verification process batch carried 68 to 112 ms that verification work does not explain. The short Argon2id batch (273 ms) was affected most, which is why it fell outside the 15 percent range. `analyze` prints this breakdown for every run.
+
 Memory is the increase in the peak working set of a fresh process during one verification. Argon2id's configured memory is the meaningful memory setting. Growth of only a few MiB is measurement noise.
+
+Concurrent memory is measured the same way: a fresh process starts the reference number of verifications (4) at once and reports its peak growth. This value is in the research question 3 table. The throughput batches reuse one process, so their process-tree RSS (`shared_process_peak_rss_mib`) includes memory retained from earlier configurations. It stays in the CSV for completeness and should not be read as an algorithm's memory requirement.
+
+Results report 95% percentile-bootstrap intervals (10000 resamples, fixed seed) for every median and p95. The research question 1 baselines are compared with Kruskal-Wallis, then pairwise Mann-Whitney U with Holm adjustment, Cliff's delta, and a bootstrap interval for the ratio of medians. The statistics settings are in `config/supplementary.yaml` because they were added after the proposal.
+
+## Supplementary experiments
+
+`config/supplementary.yaml` was declared on 2026-10-28, after the first runs had been inspected. It extends the proposal and does not change `config/experiment.yaml` or its SHA-256 (`fed42fd6...`, checked by a test). The registered budgets A and B still answer research question 3. Results go to `results/supplementary/` and every table there is labeled supplementary.
+
+| Section | What it adds |
+| --- | --- |
+| S1 | scrypt (`hashlib.scrypt`) as a fourth algorithm: OWASP baseline N=2^17, r=8, p=1 (128 MiB); N sweep 2^15 to 2^18; concurrency and process-pool check |
+| S2 | Argon2id time cost t = 1, 2, 3, 4 at the registered 19 MiB |
+| S3 | Tighter p95 budgets of 100 ms and 250 ms at the registered reference load |
+| S4 | 16 and 32 workers, beyond the core count, and the saturation point of each configuration |
+| S5 | Every algorithm calibrated to the same median verification time (100 ms and 250 ms) and what it buys: memory, iterations, cost |
+| S6 | Wrong-password verification time against correct-password time, with an equivalence margin |
+| S7 | Input pairs that derive the same key: a password over 64 bytes and its SHA-256 digest, and a trailing NUL byte |
+
+bcrypt cost and scrypt N double the work per step, so in S5 those two use the nearest achievable step. The deviation from the target is reported.
 
 ## Setup
 
@@ -99,14 +121,16 @@ Collect the report numbers on one idle machine:
 - do not use the machine until the process exits
 
 ```powershell
-.\.venv\Scripts\python.exe -m password_benchmark all
+.\.venv\Scripts\python.exe -m password_benchmark final
 ```
 
 On macOS:
 
 ```bash
-./.venv/bin/python -m password_benchmark all
+./.venv/bin/python -m password_benchmark final
 ```
+
+`final` runs the registered experiment (`all`) and then every supplementary phase, and writes both summaries. `all` alone runs only the registered experiment; `supplementary` runs only the supplementary phases against the registered data already collected.
 
 The full run replaces the working `data/raw` measurements and generated results.
 Before another run, save the completed run under a unique name:
@@ -126,6 +150,22 @@ save time into `runs/NAME`, with file checksums. It refuses to overwrite an
 existing saved run. Save immediately after measurement, before editing source.
 Share each machine's complete saved folder. The existing Windows and Mac runs
 are preserved separately; see [runs/README.md](runs/README.md).
+
+To place saved runs from different machines side by side, after copying their
+`runs/NAME` folders into one checkout:
+
+```bash
+python -m password_benchmark compare mac-delize-2026-10-28 windows-dafina-2026-10-28
+```
+
+This measures nothing. It reads each run's result tables and writes
+`comparisons/NAME__NAME/comparison.md` and CSV files: the machines, whether the
+same configuration files were used, the baseline ranking and within-machine
+ratios, the sweep growth, the budget verdicts at the reference load, and, when
+every run includes them, the equal-latency parameters. The machines differ in
+processor, operating system, and Python build, so report one run as the main
+controlled-machine result and the others as replications; compare rankings and
+ratios rather than absolute times.
 
 With no command, the program prints help and does not start a measurement.
 
@@ -153,8 +193,12 @@ For any of these commands on macOS, replace `.\.venv\Scripts\python.exe` with
 | `results/rq2_parameter_sweep.csv` | One row per sweep configuration |
 | `results/rq3_concurrency.csv` | Throughput and p95 at each worker count |
 | `results/bcrypt_length.csv` | Observed bcrypt input handling |
+| `results/rq1_statistics.csv` | Pairwise baseline tests, median ratios, and Cliff's delta |
+| `results/rq3_concurrent_memory.csv` | Fresh-process memory with 4 verifications at once |
 | `results/figures/` | Figures for the report |
+| `results/supplementary/` | Supplementary summary, CSV files, and figures (S1 to S7) |
 | `data/raw/*.jsonl` | One measurement per line |
+| `data/raw/supplementary/*.jsonl` | Supplementary measurements |
 
 `summary.md` is generated from the raw files. Copy the sentences and tables into the report, and keep the interpretation inside the limits stated at the bottom of that file.
 
@@ -163,8 +207,10 @@ For any of these commands on macOS, replace `.\.venv\Scripts\python.exe` with
 - One controlled machine. The results belong to the hardware and library versions in `environment.json`.
 - All teammates can run the harness on Windows or macOS. Select one machine's complete run for the main comparison to retain the proposal's controlled-machine design. Additional machines can be reported separately as a supplementary experiment. Different hardware, OS, Python, and OpenSSL versions change together, so these runs cannot isolate an OS performance effect. Do not pool their samples.
 - Windows records its CPU model and active power scheme; macOS records its chip model and `pmset` power settings. Apple Silicon CPU frequency is omitted because the available readings are unreliable.
-- Sequential memory uses a fresh child process and OS peak counters: peak working set on Windows and `getrusage` maximum RSS on macOS. The delta is the increase in the process high-water mark, not an exact allocation count. Older Mac results collected before this correction retain their original measurement method.
-- Concurrent RSS is total resident memory of the benchmark process tree. The runner reuses its main process between configurations, so retained allocations from earlier cases can inflate later readings. Do not interpret these values as each algorithm's isolated memory requirement.
+- Sequential memory uses a fresh child process and OS peak counters: peak working set on Windows, `getrusage` maximum RSS on macOS, and `VmHWM` from `/proc/self/status` on Linux. Linux keeps `ru_maxrss` across fork and exec, so a fresh child starts with its parent's high-water mark and the delta reads as 0; `VmHWM` belongs to the new process image only. The delta is the increase in the process high-water mark, not an exact allocation count. Older Mac results collected before this correction retain their original measurement method.
+- Concurrent memory in the main table comes from a fresh process running 4 verifications at once. The process-tree RSS of the throughput batches (`shared_process_peak_rss_mib`) is not an isolated measurement, because the runner reuses its main process between configurations.
+- On Windows, the process CPU timer advances in steps of about 15.6 ms, so per-call CPU medians are quantized. Use wall time for the comparison on Windows; CPU time is informative on macOS and Linux.
+- The bootstrap treats the verifications of one configuration as exchangeable. Repeats of the same password run in sequence, so slow drift within a configuration is not modeled.
 - Password salts are random and are created during hash construction, outside the timed verification.
 - `wall_ns` in the latency file is only the verification call. CPU time uses the process timer for the same call.
 - Concurrent CPU time is the CPU time of the worker processes or threads over the whole batch, not a per-call timer. Per-call CPU timers are misleading when several verifications share a process.

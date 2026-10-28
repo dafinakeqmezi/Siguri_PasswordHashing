@@ -13,7 +13,7 @@ import psutil
 from password_benchmark import __version__
 
 
-PACKAGES = ("argon2-cffi", "bcrypt", "psutil", "pandas", "matplotlib", "PyYAML")
+PACKAGES = ("argon2-cffi", "bcrypt", "psutil", "pandas", "numpy", "scipy", "matplotlib", "PyYAML")
 
 
 def _package_version(name: str) -> str:
