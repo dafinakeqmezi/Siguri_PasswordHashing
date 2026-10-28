@@ -1,0 +1,4 @@
+algorithm,config_id,parameter_name,parameter_value,n,median_ms,median_ci_low,median_ci_high,p95_ms,p95_ci_low,p95_ci_high,median_cpu_ms,configured_memory_mib,median_rss_delta_mib,reduced_sample,pilot_median_ms,repeats_used
+argon2id,argon2id-m19456-t2-p1,memory_kib,19456,1000,21.42785,21.38134625,21.475,23.86355,23.528869999999998,24.115759999999998,15.625,19.0,18.18359375,False,21.108,25
+bcrypt,bcrypt-c10,cost,10,1000,46.35455,46.316050000000004,46.3821,47.086815,47.01453,47.201119999999996,46.875,,0.0,False,46.114,25
+pbkdf2_sha256,pbkdf2-sha256-i600000,iterations,600000,1000,207.63735,207.51865,207.7424,211.73983499999997,211.0832,212.92794499999994,203.125,,0.0,False,207.238,25

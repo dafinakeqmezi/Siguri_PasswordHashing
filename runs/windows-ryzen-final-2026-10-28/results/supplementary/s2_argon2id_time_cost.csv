@@ -1,0 +1,5 @@
+algorithm,config_id,parameter_name,parameter_value,n,median_ms,median_ci_low,median_ci_high,p95_ms,p95_ci_low,p95_ci_high,median_cpu_ms,configured_memory_mib,median_rss_delta_mib,reduced_sample
+argon2id,argon2id-m19456-t1-p1,time_cost,1,1000,13.1903,13.115,13.25675,14.458725,14.304509999999999,14.663405,15.625,19.0,18.18359375,False
+argon2id,argon2id-m19456-t2-p1,time_cost,2,1000,22.2783,22.208199999999998,22.3645675,24.13343,23.98491,24.2766,15.625,19.0,18.1875,False
+argon2id,argon2id-m19456-t3-p1,time_cost,3,1000,31.167,31.063696249999996,31.30085,33.328935,33.1323,33.54409999999999,31.25,19.0,18.18359375,False
+argon2id,argon2id-m19456-t4-p1,time_cost,4,1000,39.8157,39.7266,39.9118,42.487045,42.23922,42.83652,46.875,19.0,18.18359375,False
