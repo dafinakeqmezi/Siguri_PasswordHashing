@@ -1,0 +1,15 @@
+config_id,workers,n,skipped,fresh_peak_delta_mib,configured_total_mib
+argon2id-m131072-t2-p1,4,3,False,512.171875,512.0
+argon2id-m19456-t2-p1,4,3,False,76.15625,76.0
+argon2id-m32768-t2-p1,4,3,False,128.1875,128.0
+argon2id-m47104-t2-p1,4,3,False,184.21875,184.0
+argon2id-m65536-t2-p1,4,3,False,256.203125,256.0
+bcrypt-c10,4,3,False,0.171875,
+bcrypt-c11,4,3,False,0.0625,
+bcrypt-c12,4,3,False,0.015625,
+bcrypt-c13,4,3,False,0.09375,
+bcrypt-c14,4,3,False,0.046875,
+pbkdf2-sha256-i1200000,4,3,False,0.171875,
+pbkdf2-sha256-i1500000,4,3,False,0.234375,
+pbkdf2-sha256-i600000,4,3,False,0.1875,
+pbkdf2-sha256-i900000,4,3,False,0.15625,

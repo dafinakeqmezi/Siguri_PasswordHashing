@@ -1,0 +1,8 @@
+name,password_bytes,alternate_bytes,self_verify,prefix72_verify,alternate_verify,truncated_at_nul_verify,cost,library_version,error,description
+ascii_71,71,,True,,,,10,5.0.0,,ASCII password of 71 bytes
+ascii_72,72,,True,,,,10,5.0.0,,ASCII password of 72 bytes
+ascii_73,73,73.0,,,,,10,5.0.0,"ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])",ASCII password of 73 bytes
+ascii_100,100,100.0,,,,,10,5.0.0,"ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])",ASCII password of 100 bytes
+prefix72_pair,76,76.0,,,,,10,5.0.0,"ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])",Two ASCII passwords that share the first 72 bytes and differ afterwards
+utf8_boundary,73,73.0,,,,,10,5.0.0,"ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])","UTF-8 passwords of 73 bytes whose final character starts at byte 71. The two final characters share the same first UTF-8 byte, so the first 72 bytes match."
+nul_inside_first_72,31,31.0,True,,False,False,10,5.0.0,,"NUL byte inside a password shorter than 72 bytes, with a different continuation after the NUL"

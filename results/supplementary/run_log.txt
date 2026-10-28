@@ -1,0 +1,209 @@
+Latency phase started. Configurations: 8. Passwords: 40.
+[1/8] argon2id-m19456-t1-p1 pilot median 7.1 ms, measured repeats 25
+  argon2id-m19456-t1-p1: 100/1000 measured verifications
+  argon2id-m19456-t1-p1: 200/1000 measured verifications
+  argon2id-m19456-t1-p1: 300/1000 measured verifications
+  argon2id-m19456-t1-p1: 400/1000 measured verifications
+  argon2id-m19456-t1-p1: 500/1000 measured verifications
+  argon2id-m19456-t1-p1: 600/1000 measured verifications
+  argon2id-m19456-t1-p1: 700/1000 measured verifications
+  argon2id-m19456-t1-p1: 800/1000 measured verifications
+  argon2id-m19456-t1-p1: 900/1000 measured verifications
+  argon2id-m19456-t1-p1: 1000/1000 measured verifications
+[2/8] argon2id-m19456-t2-p1 pilot median 14.1 ms, measured repeats 25
+  argon2id-m19456-t2-p1: 100/1000 measured verifications
+  argon2id-m19456-t2-p1: 200/1000 measured verifications
+  argon2id-m19456-t2-p1: 300/1000 measured verifications
+  argon2id-m19456-t2-p1: 400/1000 measured verifications
+  argon2id-m19456-t2-p1: 500/1000 measured verifications
+  argon2id-m19456-t2-p1: 600/1000 measured verifications
+  argon2id-m19456-t2-p1: 700/1000 measured verifications
+  argon2id-m19456-t2-p1: 800/1000 measured verifications
+  argon2id-m19456-t2-p1: 900/1000 measured verifications
+  argon2id-m19456-t2-p1: 1000/1000 measured verifications
+[3/8] argon2id-m19456-t3-p1 pilot median 21.6 ms, measured repeats 25
+  argon2id-m19456-t3-p1: 100/1000 measured verifications
+  argon2id-m19456-t3-p1: 200/1000 measured verifications
+  argon2id-m19456-t3-p1: 300/1000 measured verifications
+  argon2id-m19456-t3-p1: 400/1000 measured verifications
+  argon2id-m19456-t3-p1: 500/1000 measured verifications
+  argon2id-m19456-t3-p1: 600/1000 measured verifications
+  argon2id-m19456-t3-p1: 700/1000 measured verifications
+  argon2id-m19456-t3-p1: 800/1000 measured verifications
+  argon2id-m19456-t3-p1: 900/1000 measured verifications
+  argon2id-m19456-t3-p1: 1000/1000 measured verifications
+[4/8] argon2id-m19456-t4-p1 pilot median 28.4 ms, measured repeats 25
+  argon2id-m19456-t4-p1: 100/1000 measured verifications
+  argon2id-m19456-t4-p1: 200/1000 measured verifications
+  argon2id-m19456-t4-p1: 300/1000 measured verifications
+  argon2id-m19456-t4-p1: 400/1000 measured verifications
+  argon2id-m19456-t4-p1: 500/1000 measured verifications
+  argon2id-m19456-t4-p1: 600/1000 measured verifications
+  argon2id-m19456-t4-p1: 700/1000 measured verifications
+  argon2id-m19456-t4-p1: 800/1000 measured verifications
+  argon2id-m19456-t4-p1: 900/1000 measured verifications
+  argon2id-m19456-t4-p1: 1000/1000 measured verifications
+[5/8] scrypt-n32768-r8-p1 pilot median 47.0 ms, measured repeats 25
+  scrypt-n32768-r8-p1: 100/1000 measured verifications
+  scrypt-n32768-r8-p1: 200/1000 measured verifications
+  scrypt-n32768-r8-p1: 300/1000 measured verifications
+  scrypt-n32768-r8-p1: 400/1000 measured verifications
+  scrypt-n32768-r8-p1: 500/1000 measured verifications
+  scrypt-n32768-r8-p1: 600/1000 measured verifications
+  scrypt-n32768-r8-p1: 700/1000 measured verifications
+  scrypt-n32768-r8-p1: 800/1000 measured verifications
+  scrypt-n32768-r8-p1: 900/1000 measured verifications
+  scrypt-n32768-r8-p1: 1000/1000 measured verifications
+[6/8] scrypt-n65536-r8-p1 pilot median 97.6 ms, measured repeats 25
+  scrypt-n65536-r8-p1: 100/1000 measured verifications
+  scrypt-n65536-r8-p1: 200/1000 measured verifications
+  scrypt-n65536-r8-p1: 300/1000 measured verifications
+  scrypt-n65536-r8-p1: 400/1000 measured verifications
+  scrypt-n65536-r8-p1: 500/1000 measured verifications
+  scrypt-n65536-r8-p1: 600/1000 measured verifications
+  scrypt-n65536-r8-p1: 700/1000 measured verifications
+  scrypt-n65536-r8-p1: 800/1000 measured verifications
+  scrypt-n65536-r8-p1: 900/1000 measured verifications
+  scrypt-n65536-r8-p1: 1000/1000 measured verifications
+[7/8] scrypt-n131072-r8-p1 pilot median 198.0 ms, measured repeats 25
+  scrypt-n131072-r8-p1: 100/1000 measured verifications
+  scrypt-n131072-r8-p1: 200/1000 measured verifications
+  scrypt-n131072-r8-p1: 300/1000 measured verifications
+  scrypt-n131072-r8-p1: 400/1000 measured verifications
+  scrypt-n131072-r8-p1: 500/1000 measured verifications
+  scrypt-n131072-r8-p1: 600/1000 measured verifications
+  scrypt-n131072-r8-p1: 700/1000 measured verifications
+  scrypt-n131072-r8-p1: 800/1000 measured verifications
+  scrypt-n131072-r8-p1: 900/1000 measured verifications
+  scrypt-n131072-r8-p1: 1000/1000 measured verifications
+[8/8] scrypt-n262144-r8-p1 pilot median 401.7 ms, measured repeats 25
+  scrypt-n262144-r8-p1: 100/1000 measured verifications
+  scrypt-n262144-r8-p1: 200/1000 measured verifications
+  scrypt-n262144-r8-p1: 300/1000 measured verifications
+  scrypt-n262144-r8-p1: 400/1000 measured verifications
+  scrypt-n262144-r8-p1: 500/1000 measured verifications
+  scrypt-n262144-r8-p1: 600/1000 measured verifications
+  scrypt-n262144-r8-p1: 700/1000 measured verifications
+  scrypt-n262144-r8-p1: 800/1000 measured verifications
+  scrypt-n262144-r8-p1: 900/1000 measured verifications
+  scrypt-n262144-r8-p1: 1000/1000 measured verifications
+Latency phase finished. Failed configurations: 0.
+Concurrency phase started (concurrent_extra.jsonl). Configurations: 14.
+[1/14] argon2id-m19456-t2-p1 threads=16
+[1/14] argon2id-m19456-t2-p1 threads=32
+[2/14] argon2id-m32768-t2-p1 threads=16
+[2/14] argon2id-m32768-t2-p1 threads=32
+[3/14] argon2id-m47104-t2-p1 threads=16
+[3/14] argon2id-m47104-t2-p1 threads=32
+[4/14] argon2id-m65536-t2-p1 threads=16
+[4/14] argon2id-m65536-t2-p1 threads=32
+[5/14] argon2id-m131072-t2-p1 threads=16
+[5/14] argon2id-m131072-t2-p1 threads=32
+[6/14] bcrypt-c10 threads=16
+[6/14] bcrypt-c10 threads=32
+[7/14] bcrypt-c11 threads=16
+[7/14] bcrypt-c11 threads=32
+[8/14] bcrypt-c12 threads=16
+[8/14] bcrypt-c12 threads=32
+[9/14] bcrypt-c13 threads=16
+[9/14] bcrypt-c13 threads=32
+[10/14] bcrypt-c14 threads=16
+[10/14] bcrypt-c14 threads=32
+[11/14] pbkdf2-sha256-i600000 threads=16
+[11/14] pbkdf2-sha256-i600000 threads=32
+[12/14] pbkdf2-sha256-i900000 threads=16
+[12/14] pbkdf2-sha256-i900000 threads=32
+[13/14] pbkdf2-sha256-i1200000 threads=16
+[13/14] pbkdf2-sha256-i1200000 threads=32
+[14/14] pbkdf2-sha256-i1500000 threads=16
+[14/14] pbkdf2-sha256-i1500000 threads=32
+Concurrency phase finished (concurrent_extra.jsonl). Failed configurations: 0.
+Concurrency phase started (concurrent.jsonl). Configurations: 4.
+[1/4] scrypt-n32768-r8-p1 threads=1
+[1/4] scrypt-n32768-r8-p1 threads=2
+[1/4] scrypt-n32768-r8-p1 threads=4
+[1/4] scrypt-n32768-r8-p1 threads=8
+[1/4] scrypt-n32768-r8-p1 threads=16
+[1/4] scrypt-n32768-r8-p1 threads=32
+[1/4] scrypt-n32768-r8-p1 fresh-process memory, 4 at once
+[2/4] scrypt-n65536-r8-p1 threads=1
+[2/4] scrypt-n65536-r8-p1 threads=2
+[2/4] scrypt-n65536-r8-p1 threads=4
+[2/4] scrypt-n65536-r8-p1 threads=8
+[2/4] scrypt-n65536-r8-p1 threads=16
+[2/4] scrypt-n65536-r8-p1 threads=32
+[2/4] scrypt-n65536-r8-p1 fresh-process memory, 4 at once
+[3/4] scrypt-n131072-r8-p1 threads=1
+[3/4] scrypt-n131072-r8-p1 threads=2
+[3/4] scrypt-n131072-r8-p1 threads=4
+[3/4] scrypt-n131072-r8-p1 threads=8
+[3/4] scrypt-n131072-r8-p1 threads=16
+[3/4] scrypt-n131072-r8-p1 threads=32
+[3/4] scrypt-n131072-r8-p1 process-pool check
+[3/4] scrypt-n131072-r8-p1 fresh-process memory, 4 at once
+[4/4] scrypt-n262144-r8-p1 threads=1
+[4/4] scrypt-n262144-r8-p1 threads=2
+[4/4] scrypt-n262144-r8-p1 threads=4
+[4/4] scrypt-n262144-r8-p1 threads=8
+[4/4] scrypt-n262144-r8-p1 threads=16
+[4/4] scrypt-n262144-r8-p1 threads=32
+Skipped scrypt-n262144-r8-p1 thread workers=32: insufficient memory
+[4/4] scrypt-n262144-r8-p1 fresh-process memory, 4 at once
+Concurrency phase finished (concurrent.jsonl). Failed configurations: 0.
+Equal-latency phase started. Targets: [100.0, 250.0] ms.
+[1/8] argon2id target 100 ms: memory_kib=104448
+[1/8] eq100ms-argon2id-m104448-t2-p1 pilot median 97.6 ms, measured repeats 10
+  eq100ms-argon2id-m104448-t2-p1: 100/400 measured verifications
+  eq100ms-argon2id-m104448-t2-p1: 200/400 measured verifications
+  eq100ms-argon2id-m104448-t2-p1: 300/400 measured verifications
+  eq100ms-argon2id-m104448-t2-p1: 400/400 measured verifications
+[2/8] bcrypt target 100 ms: cost=11
+[2/8] eq100ms-bcrypt-c11 pilot median 85.9 ms, measured repeats 10
+  eq100ms-bcrypt-c11: 100/400 measured verifications
+  eq100ms-bcrypt-c11: 200/400 measured verifications
+  eq100ms-bcrypt-c11: 300/400 measured verifications
+  eq100ms-bcrypt-c11: 400/400 measured verifications
+[3/8] pbkdf2_sha256 target 100 ms: iterations=1260000
+[3/8] eq100ms-pbkdf2-sha256-i1260000 pilot median 101.1 ms, measured repeats 10
+  eq100ms-pbkdf2-sha256-i1260000: 100/400 measured verifications
+  eq100ms-pbkdf2-sha256-i1260000: 200/400 measured verifications
+  eq100ms-pbkdf2-sha256-i1260000: 300/400 measured verifications
+  eq100ms-pbkdf2-sha256-i1260000: 400/400 measured verifications
+[4/8] scrypt target 100 ms: n=65536
+[4/8] eq100ms-scrypt-n65536-r8-p1 pilot median 97.3 ms, measured repeats 10
+  eq100ms-scrypt-n65536-r8-p1: 100/400 measured verifications
+  eq100ms-scrypt-n65536-r8-p1: 200/400 measured verifications
+  eq100ms-scrypt-n65536-r8-p1: 300/400 measured verifications
+  eq100ms-scrypt-n65536-r8-p1: 400/400 measured verifications
+[5/8] argon2id target 250 ms: memory_kib=254976
+[5/8] eq250ms-argon2id-m254976-t2-p1 pilot median 246.6 ms, measured repeats 10
+  eq250ms-argon2id-m254976-t2-p1: 100/400 measured verifications
+  eq250ms-argon2id-m254976-t2-p1: 200/400 measured verifications
+  eq250ms-argon2id-m254976-t2-p1: 300/400 measured verifications
+  eq250ms-argon2id-m254976-t2-p1: 400/400 measured verifications
+[6/8] bcrypt target 250 ms: cost=13
+[6/8] eq250ms-bcrypt-c13 pilot median 328.7 ms, measured repeats 10
+  eq250ms-bcrypt-c13: 100/400 measured verifications
+  eq250ms-bcrypt-c13: 200/400 measured verifications
+  eq250ms-bcrypt-c13: 300/400 measured verifications
+  eq250ms-bcrypt-c13: 400/400 measured verifications
+[7/8] pbkdf2_sha256 target 250 ms: iterations=3200000
+[7/8] eq250ms-pbkdf2-sha256-i3200000 pilot median 252.4 ms, measured repeats 10
+  eq250ms-pbkdf2-sha256-i3200000: 100/400 measured verifications
+  eq250ms-pbkdf2-sha256-i3200000: 200/400 measured verifications
+  eq250ms-pbkdf2-sha256-i3200000: 300/400 measured verifications
+  eq250ms-pbkdf2-sha256-i3200000: 400/400 measured verifications
+[8/8] scrypt target 250 ms: n=131072
+[8/8] eq250ms-scrypt-n131072-r8-p1 pilot median 195.7 ms, measured repeats 10
+  eq250ms-scrypt-n131072-r8-p1: 100/400 measured verifications
+  eq250ms-scrypt-n131072-r8-p1: 200/400 measured verifications
+  eq250ms-scrypt-n131072-r8-p1: 300/400 measured verifications
+  eq250ms-scrypt-n131072-r8-p1: 400/400 measured verifications
+Equal-latency phase finished. Failed configurations: 0.
+Wrong-password timing phase started.
+[1/4] argon2id-m19456-t2-p1: 800 verifications
+[2/4] bcrypt-c10: 800 verifications
+[3/4] pbkdf2-sha256-i600000: 800 verifications
+[4/4] scrypt-n131072-r8-p1: 800 verifications
+Wrong-password timing phase finished. Failed configurations: 0.
+Input-handling phase finished. Cases: 16.

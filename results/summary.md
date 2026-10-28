@@ -4,11 +4,11 @@
 
 - Python: 3.13.5 (main, Jun 11 2025, 15:36:57) [Clang 16.0.0 (clang-1600.0.26.6)]
 - OpenSSL: OpenSSL 3.5.1 1 Jul 2025
-- CPU: arm (12 physical cores, 12 logical)
+- CPU: Apple M4 Pro (12 physical cores, 12 logical)
 - RAM: 24.0 GiB
 - Platform: macOS-15.2-arm64-arm-64bit-Mach-O
-- Power scheme: unavailable: [Errno 2] No such file or directory: 'powercfg'
-- Libraries: argon2-cffi 25.1.0, bcrypt 5.0.0, psutil 7.2.2, pandas 3.1.0, matplotlib 3.11.2, PyYAML 6.0.3
+- Power scheme: Battery Power: Sleep On Power Button 1 powermode 0 standby 1 ttyskeepawake 1 hibernatemode 3 powernap 1 hibernatefile /var/vm/sleepimage displaysleep 10 womp 0 networkoversleep 0 sleep 1 lessbright 1 tcpkeepalive 1 disksleep 10 AC Power: Sleep On Power Button 1 powermode 0 standby 1 ttyskeepawake 1 hibernatemode 3 powernap 1 hibernatefile /var/vm/sleepimage displaysleep 15 womp 1 networkoversleep 0 sleep 1 tcpkeepalive 1 disksleep 10
+- Libraries: argon2-cffi 25.1.0, bcrypt 5.0.0, psutil 7.2.2, pandas 3.1.0, numpy 2.5.4, scipy 1.18.1, matplotlib 3.11.2, PyYAML 6.0.3
 - Config SHA-256: fed42fd6b7c6f09c0870817614bc1d841c6766f99437cbfda8932e9047045aa4
 - The full package list is in environment.json.
 
@@ -21,19 +21,33 @@ Memory is the growth in the process peak working set during verification, measur
 
 ## Research question 1
 
-Under the baseline configurations, median verification latency was Argon2id 12.87 ms (p95 14.29 ms, CPU 12.87 ms); bcrypt 41.09 ms (p95 42.48 ms, CPU 41.06 ms); PBKDF2-HMAC-SHA256 45.76 ms (p95 46.72 ms, CPU 45.74 ms).
+Under the baseline configurations, median verification latency was Argon2id 13.53 ms (95% CI 13.47 to 13.58; p95 15.71 ms, CPU 13.52 ms); bcrypt 41.78 ms (95% CI 41.72 to 41.83; p95 43.66 ms, CPU 41.76 ms); PBKDF2-HMAC-SHA256 48.27 ms (95% CI 48.19 to 48.32; p95 49.23 ms, CPU 48.24 ms).
 
-| Algorithm | Median ms | p95 ms | CPU ms | RSS delta MiB | Configured MiB | n |
-| --- | --- | --- | --- | --- | --- | --- |
-| Argon2id | 12.87 | 14.29 | 12.87 | 19.0 | 19.0 | 1000 |
-| bcrypt | 41.09 | 42.48 | 41.06 | 0.0 |  | 1000 |
-| PBKDF2-HMAC-SHA256 | 45.76 | 46.72 | 45.74 | 0.0 |  | 1000 |
+| Algorithm | Median ms | 95% CI | p95 ms | 95% CI | CPU ms | RSS delta MiB | Configured MiB | n |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Argon2id | 13.53 | 13.47 to 13.58 | 15.71 | 15.45 to 15.85 | 13.52 | 19.0 | 19.0 | 1000 |
+| bcrypt | 41.78 | 41.72 to 41.83 | 43.66 | 43.42 to 43.94 | 41.76 | 0.0 |  | 1000 |
+| PBKDF2-HMAC-SHA256 | 48.27 | 48.19 to 48.32 | 49.23 | 49.15 to 49.30 | 48.24 | 0.0 |  | 1000 |
+
+### Statistical tests
+
+Kruskal-Wallis across the baselines: H = 2662.4, p < 0.0001, epsilon-squared = 0.888.
+
+| Comparison | Median ratio | 95% CI | Mann-Whitney p (Holm) | Cliff's delta | Magnitude |
+| --- | --- | --- | --- | --- | --- |
+| Argon2id / bcrypt | 0.324 | 0.322 to 0.325 | < 0.0001 | -1.000 | large |
+| Argon2id / PBKDF2-HMAC-SHA256 | 0.280 | 0.279 to 0.281 | < 0.0001 | -1.000 | large |
+| bcrypt / PBKDF2-HMAC-SHA256 | 0.866 | 0.864 to 0.867 | < 0.0001 | -0.997 | large |
+
+The median ratio is the first algorithm's median divided by the second's. Cliff's delta is the probability that a verification of the first algorithm is slower minus the probability that it is faster. With this many verifications a p-value detects even small differences, so the ratio and Cliff's delta describe the size. The bootstrap treats verifications as exchangeable. Repeats of the same password ran in sequence, so slow drift within a configuration is not modeled.
 
 ## Research question 2
 
-For Argon2id, raising memory_kib from 19 MiB to 128 MiB changed median verification latency from 12.87 ms to 115.11 ms.
-For bcrypt, raising cost from 10 to 14 changed median verification latency from 41.09 ms to 657.64 ms.
-For PBKDF2-HMAC-SHA256, raising iterations from 600000 to 1500000 changed median verification latency from 45.76 ms to 116.37 ms.
+For Argon2id, raising memory_kib from 19 MiB to 128 MiB changed median verification latency from 13.53 ms (CI 13.47 to 13.58) to 121.05 ms (CI 120.96 to 121.11).
+For bcrypt, raising cost from 10 to 14 changed median verification latency from 41.78 ms (CI 41.72 to 41.83) to 659.27 ms (CI 658.96 to 659.67).
+For PBKDF2-HMAC-SHA256, raising iterations from 600000 to 1500000 changed median verification latency from 48.27 ms (CI 48.19 to 48.32) to 120.35 ms (CI 120.27 to 120.51).
+
+Intervals for every sweep point are in rq2_parameter_sweep.csv (95% bootstrap).
 
 ## Research question 3
 
@@ -41,28 +55,36 @@ At 4 concurrent thread-pool verifications, configurations inside budget A: argon
 Inside budget B but outside budget A: none.
 Outside both budgets: bcrypt-c14.
 
-| Configuration | p95 ms | Per second | Peak RSS MiB | Budget A | Budget B |
-| --- | --- | --- | --- | --- | --- |
-| argon2id-m19456-t2-p1 | 22.45 | 219.9 | 116.8 | yes | yes |
-| argon2id-m32768-t2-p1 | 36.80 | 121.4 | 310.4 | yes | yes |
-| argon2id-m47104-t2-p1 | 52.78 | 82.4 | 590.7 | yes | yes |
-| argon2id-m65536-t2-p1 | 72.43 | 59.7 | 865.9 | yes | yes |
-| argon2id-m131072-t2-p1 | 144.27 | 28.4 | 1236.9 | yes | yes |
-| bcrypt-c10 | 51.95 | 82.5 | 1463.2 | yes | yes |
-| bcrypt-c11 | 97.05 | 43.0 | 1302.3 | yes | yes |
-| bcrypt-c12 | 186.24 | 21.9 | 1189.3 | yes | yes |
-| bcrypt-c13 | 370.67 | 11.0 | 922.2 | yes | yes |
-| bcrypt-c14 | 737.67 | 5.5 | 719.3 | no | no |
-| pbkdf2-sha256-i600000 | 52.74 | 76.9 | 719.3 | yes | yes |
-| pbkdf2-sha256-i900000 | 82.87 | 51.0 | 719.3 | yes | yes |
-| pbkdf2-sha256-i1200000 | 113.52 | 39.2 | 719.4 | yes | yes |
-| pbkdf2-sha256-i1500000 | 142.75 | 31.0 | 719.4 | yes | yes |
+| Configuration | p95 ms | Per second | Memory MiB, 4 at once | Configured MiB x 4 | Budget A | Budget B |
+| --- | --- | --- | --- | --- | --- | --- |
+| argon2id-m19456-t2-p1 | 21.64 | 222.3 | 76.0 | 76.0 | yes | yes |
+| argon2id-m32768-t2-p1 | 35.79 | 121.7 | 128.0 | 128.0 | yes | yes |
+| argon2id-m47104-t2-p1 | 52.09 | 83.4 | 184.0 | 184.0 | yes | yes |
+| argon2id-m65536-t2-p1 | 71.60 | 59.5 | 256.0 | 256.0 | yes | yes |
+| argon2id-m131072-t2-p1 | 143.64 | 28.6 | 512.0 | 512.0 | yes | yes |
+| bcrypt-c10 | 51.31 | 83.6 | 0.0 |  | yes | yes |
+| bcrypt-c11 | 96.14 | 43.4 | 0.0 |  | yes | yes |
+| bcrypt-c12 | 187.92 | 21.8 | 0.0 |  | yes | yes |
+| bcrypt-c13 | 370.43 | 10.9 | 0.1 |  | yes | yes |
+| bcrypt-c14 | 737.25 | 5.5 | 0.0 |  | no | no |
+| pbkdf2-sha256-i600000 | 58.60 | 76.5 | 0.0 |  | yes | yes |
+| pbkdf2-sha256-i900000 | 85.86 | 51.2 | 0.0 |  | yes | yes |
+| pbkdf2-sha256-i1200000 | 120.42 | 38.3 | 0.0 |  | yes | yes |
+| pbkdf2-sha256-i1500000 | 136.96 | 31.4 | 0.0 |  | yes | yes |
+
+The memory column is the median peak growth of a fresh process while 4 verifications ran at once (rq3_concurrent_memory.csv). It is measured separately from the throughput batches. The throughput batches reuse one process, so their process-tree RSS (shared_process_peak_rss_mib in rq3_concurrency.csv) includes memory retained from earlier configurations and is not an isolated measurement.
 
 ### Process-pool check
 
-argon2id-m19456-t2-p1: thread pool 219.9/s, process pool 183.2/s, relative difference 16.7%, outside the registered 15% agreement range.
-bcrypt-c10: thread pool 82.5/s, process pool 73.2/s, relative difference 11.3%, within the registered 15% agreement range.
-pbkdf2-sha256-i600000: thread pool 76.9/s, process pool 69.0/s, relative difference 10.3%, within the registered 15% agreement range.
+- argon2id-m19456-t2-p1: thread pool 222.3/s, process pool 216.5/s, relative difference 2.6%, within the registered 15% agreement range.
+  Per-verification median: thread pool 17.16 ms, process pool 16.74 ms. Batch time not explained by verification work (batch wall time minus summed verification time / workers): thread pool 9.0 ms, process pool 19.8 ms of 900 ms and 231 ms batches.
+  Worker startup, completed before the clock started and including the warm-up tasks: thread pool 217.1 ms, process pool 270.7 ms.
+- bcrypt-c10: thread pool 83.6/s, process pool 82.7/s, relative difference 1.0%, within the registered 15% agreement range.
+  Per-verification median: thread pool 46.49 ms, process pool 45.72 ms. Batch time not explained by verification work (batch wall time minus summed verification time / workers): thread pool 17.4 ms, process pool 33.6 ms of 2394 ms and 604 ms batches.
+  Worker startup, completed before the clock started and including the warm-up tasks: thread pool 207.0 ms, process pool 267.5 ms.
+- pbkdf2-sha256-i600000: thread pool 76.5/s, process pool 77.3/s, relative difference 1.0%, within the registered 15% agreement range.
+  Per-verification median: thread pool 50.00 ms, process pool 49.19 ms. Batch time not explained by verification work (batch wall time minus summed verification time / workers): thread pool 24.6 ms, process pool 31.3 ms of 2615 ms and 647 ms batches.
+  Worker startup, completed before the clock started and including the warm-up tasks: thread pool 205.2 ms, process pool 281.3 ms.
 
 ## bcrypt input length
 
@@ -89,20 +111,20 @@ These times are not part of the verification comparison. Hash construction was e
 
 | Configuration | Median hash ms | n |
 | --- | --- | --- |
-| argon2id-m19456-t2-p1 | 12.89 | 40 |
-| argon2id-m32768-t2-p1 | 27.21 | 40 |
-| argon2id-m47104-t2-p1 | 37.53 | 40 |
-| argon2id-m65536-t2-p1 | 54.01 | 40 |
-| argon2id-m131072-t2-p1 | 115.32 | 40 |
-| bcrypt-c10 | 41.05 | 40 |
-| bcrypt-c11 | 82.02 | 40 |
-| bcrypt-c12 | 164.18 | 40 |
-| bcrypt-c13 | 328.02 | 40 |
-| bcrypt-c14 | 657.44 | 40 |
-| pbkdf2-sha256-i600000 | 45.60 | 40 |
-| pbkdf2-sha256-i900000 | 68.83 | 40 |
-| pbkdf2-sha256-i1200000 | 92.65 | 40 |
-| pbkdf2-sha256-i1500000 | 116.17 | 40 |
+| argon2id-m19456-t2-p1 | 13.28 | 40 |
+| argon2id-m32768-t2-p1 | 25.51 | 40 |
+| argon2id-m47104-t2-p1 | 38.85 | 40 |
+| argon2id-m65536-t2-p1 | 57.18 | 40 |
+| argon2id-m131072-t2-p1 | 125.62 | 40 |
+| bcrypt-c10 | 41.90 | 40 |
+| bcrypt-c11 | 83.68 | 40 |
+| bcrypt-c12 | 165.67 | 40 |
+| bcrypt-c13 | 328.46 | 40 |
+| bcrypt-c14 | 659.21 | 40 |
+| pbkdf2-sha256-i600000 | 47.72 | 40 |
+| pbkdf2-sha256-i900000 | 72.63 | 40 |
+| pbkdf2-sha256-i1200000 | 96.60 | 40 |
+| pbkdf2-sha256-i1500000 | 120.61 | 40 |
 
 ## Scope
 

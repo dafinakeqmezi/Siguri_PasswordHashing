@@ -1,4 +1,4 @@
-algorithm,config_id,parameter_name,parameter_value,n,median_ms,p95_ms,median_cpu_ms,configured_memory_mib,median_rss_delta_mib,reduced_sample,pilot_median_ms,repeats_used
-argon2id,argon2id-m19456-t2-p1,memory_kib,19456,1000,12.8748545,14.291466649999998,12.871,19.0,19.03125,False,14.494,25
-bcrypt,bcrypt-c10,cost,10,1000,41.0938335,42.47555625,41.06,,0.015625,False,41.087,25
-pbkdf2_sha256,pbkdf2-sha256-i600000,iterations,600000,1000,45.756854000000004,46.716277399999996,45.736,,0.03125,False,45.55,25
+algorithm,config_id,parameter_name,parameter_value,n,median_ms,median_ci_low,median_ci_high,p95_ms,p95_ci_low,p95_ci_high,median_cpu_ms,configured_memory_mib,median_rss_delta_mib,reduced_sample,pilot_median_ms,repeats_used
+argon2id,argon2id-m19456-t2-p1,memory_kib,19456,1000,13.529542,13.4736439375,13.5821255,15.71456455,15.447501749999999,15.852608949999999,13.5215,19.0,18.96875,False,13.082,25
+bcrypt,bcrypt-c10,cost,10,1000,41.7831045,41.723479,41.828103999999996,43.6595107,43.4174881,43.93879345,41.761,,0.0,False,42.423,25
+pbkdf2_sha256,pbkdf2-sha256-i600000,iterations,600000,1000,48.269313,48.1937915,48.319333,49.22788475,49.150042,49.303816049999995,48.2445,,0.0,False,48.537,25
