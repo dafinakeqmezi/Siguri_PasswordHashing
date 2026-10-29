@@ -58,6 +58,17 @@ Results report 95% percentile-bootstrap intervals (10000 resamples, fixed seed) 
 
 bcrypt cost and scrypt N double the work per step, so in S5 those two use the nearest achievable step. The deviation from the target is reported.
 
+## Optional: end-to-end login load test
+
+`config/web_login.yaml` was declared on 2026-10-29, after both final runs. It is separate from the registered and supplementary designs, does not change their files or hashes, and `final` does not run it. A FastAPI service (`password_benchmark/web_app.py`) holds hashes of the synthetic corpus at each baseline and answers `POST /login`; locust clients (`password_benchmark/web_locustfile.py`) send logins with no wait at 1, 4, and 16 concurrent clients for 30 s each, and 10% of requests use a wrong password that must return 401.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-web.txt
+.\.venv\Scripts\python.exe -m password_benchmark web-load
+```
+
+It takes about 7 minutes plus hash setup, and writes `results/supplementary/web_login.md` and `web_login.csv` from `data/raw/supplementary/web_login.jsonl`. Run it before `save-run` if it should be part of a saved run. Each request also pays for HTTP, JSON parsing, and the server's thread pool, and the clients share the machine with the server, so these numbers describe this setup rather than a deployed service. Locust rounds response times above 100 ms to two significant digits.
+
 ## Setup
 
 Windows and macOS use the same benchmark and configuration. Python 3.12 is
@@ -197,6 +208,7 @@ For any of these commands on macOS, replace `.\.venv\Scripts\python.exe` with
 | `results/rq3_concurrent_memory.csv` | Fresh-process memory with 4 verifications at once |
 | `results/figures/` | Figures for the report |
 | `results/supplementary/` | Supplementary summary, CSV files, and figures (S1 to S7) |
+| `results/supplementary/web_login.md` | Optional end-to-end login load test, when `web-load` was run |
 | `data/raw/*.jsonl` | One measurement per line |
 | `data/raw/supplementary/*.jsonl` | Supplementary measurements |
 

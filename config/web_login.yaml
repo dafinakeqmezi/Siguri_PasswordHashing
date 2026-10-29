@@ -1,0 +1,22 @@
+# Optional end-to-end login load test.
+# Declared 2026-10-29, after both final runs had been collected and inspected.
+# It is not part of config/experiment.yaml or config/supplementary.yaml and
+# does not change either file or their SHA-256. `final` does not run it.
+declared: "2026-10-29"
+
+# Baseline parameters are taken from the registered and supplementary configs.
+algorithms: [argon2id, bcrypt, pbkdf2_sha256, scrypt]
+
+# Concurrent simulated clients. Each sends its next request as soon as the
+# previous one returns (closed loop, no think time), like the thread pool in
+# the registered concurrency experiment.
+clients: [1, 4, 16]
+duration_seconds: 30
+warmup_requests: 10
+
+# Share of requests that send a wrong password of the same length.
+wrong_password_fraction: 0.1
+
+# One server process. FastAPI runs the synchronous /login handler in its
+# thread pool, and the hash libraries release the interpreter lock.
+server_workers: 1

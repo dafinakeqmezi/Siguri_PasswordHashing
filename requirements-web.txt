@@ -1,0 +1,7 @@
+# Optional: only for `python -m password_benchmark web-load`.
+# Install on top of requirements-lock.txt. The registered and supplementary
+# experiments do not need these packages.
+fastapi==0.162.0
+uvicorn==0.54.0
+locust==2.47.0
+httpx==0.28.1

@@ -59,6 +59,9 @@ def print_help() -> None:
     print("  save-run NAME   Save raw data, results, and source in runs/NAME; refuses overwrite.")
     print("  compare A B ... Place saved runs side by side in comparisons/A__B; measures nothing.")
     print()
+    print("  Optional (config/web_login.yaml, needs requirements-web.txt; not part of 'final'):")
+    print("  web-load        FastAPI /login under locust clients, then write results/supplementary/web_login.md.")
+    print()
     print("Run commands from the project root. Close other applications before 'all'.")
 
 
@@ -191,6 +194,20 @@ def main(argv: list[str] | None = None) -> int:
         if (results_dir / "RUN_IN_PROGRESS").exists():
             raise SystemExit("A measurement run is in progress. Wait for it to finish before analyzing.")
         return _execute(cfg, raw_dir, results_dir, "registered", ["analyze"], supp)
+    if command == "web-load":
+        from importlib.util import find_spec
+
+        missing = [name for name in ("fastapi", "uvicorn", "locust") if find_spec(name) is None]
+        if missing:
+            raise SystemExit(f"Missing {', '.join(missing)}. Install the optional packages: python -m pip install -r requirements-web.txt")
+        from password_benchmark.web_load import analyze_web_load, load_web_settings, run_web_load
+
+        settings = load_web_settings()
+        supp_raw, supp_results = supplementary_dirs(False)
+        print("Optional web login load test. Leave this machine idle until the process exits.", flush=True)
+        with RunLock(results_dir / "RUN_IN_PROGRESS"):
+            status = run_web_load(settings, supp, supp_raw, supp_results)
+        return status | analyze_web_load(settings, cfg, supp_raw, supp_results)
 
     phases = {
         "bcrypt-length": ["bcrypt-length"],
