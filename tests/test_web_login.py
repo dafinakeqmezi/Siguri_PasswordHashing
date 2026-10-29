@@ -1,17 +1,45 @@
 """Checks for the optional web login load test. These are not experimental results."""
 
 import tempfile
+import csv
+import json
 import unittest
+from types import SimpleNamespace
 from importlib.util import find_spec
 from pathlib import Path
 
 from password_benchmark.hashers import make_hasher
-from password_benchmark.web_load import load_web_settings, parse_locust_stats
+from password_benchmark.web_load import analyze_web_load, load_web_settings, parse_locust_stats
 
 FAST_BCRYPT = {"cost": 4}
 
 
 class WebSettingsTests(unittest.TestCase):
+    def test_report_distinguishes_requests_from_correct_logins_and_flags_short_samples(self):
+        rows = []
+        for kind, count, rate in (("correct", 58, 4.0), ("wrong", 9, 0.6), ("all", 67, 4.6)):
+            rows.append({
+                "algorithm": "scrypt", "config_id": "scrypt-test", "clients": 1,
+                "kind": kind, "requests": count, "requests_per_second": rate,
+                "failures": 0, "median_ms": 210, "p95_ms": 230, "p99_ms": 250,
+                "config_sha256": "test", "duration_seconds": 30, "server_workers": 1,
+            })
+        with tempfile.TemporaryDirectory() as temporary:
+            folder = Path(temporary)
+            (folder / "web_login.jsonl").write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+            cfg = SimpleNamespace(reference_workers=4, budget_a_ms=500, throughput_min=10)
+            analyze_web_load({"declared": "2026-10-29", "wrong_password_fraction": 0.1}, cfg, folder, folder)
+            with (folder / "web_login.csv").open() as handle:
+                result = next(csv.DictReader(handle))
+            report = (folder / "web_login.md").read_text()
+        self.assertEqual(float(result["requests_per_second"]), 4.6)
+        self.assertEqual(float(result["correct_logins_per_second"]), 4.0)
+        self.assertEqual(int(result["correct_requests"]), 58)
+        self.assertEqual(int(result["wrong_requests"]), 9)
+        self.assertIn("Requests/s includes both", report)
+        self.assertIn("only 58 correct requests", report)
+        self.assertIn("approximately 14.6 s", report)
+
     def test_settings_are_separate_from_the_declared_designs(self):
         settings = load_web_settings()
         self.assertEqual(settings["algorithms"], ["argon2id", "bcrypt", "pbkdf2_sha256", "scrypt"])

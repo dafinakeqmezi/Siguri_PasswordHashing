@@ -207,3 +207,17 @@ Wrong-password timing phase started.
 [4/4] scrypt-n131072-r8-p1: 800 verifications
 Wrong-password timing phase finished. Failed configurations: 0.
 Input-handling phase finished. Cases: 16.
+Web login load test started (optional; config/web_login.yaml).
+[1/4] argon2id-m19456-t2-p1: 1 clients for 30 s
+[1/4] argon2id-m19456-t2-p1: 4 clients for 30 s
+[1/4] argon2id-m19456-t2-p1: 16 clients for 30 s
+[2/4] bcrypt-c10: 1 clients for 30 s
+[2/4] bcrypt-c10: 4 clients for 30 s
+[2/4] bcrypt-c10: 16 clients for 30 s
+[3/4] pbkdf2-sha256-i600000: 1 clients for 30 s
+[3/4] pbkdf2-sha256-i600000: 4 clients for 30 s
+[3/4] pbkdf2-sha256-i600000: 16 clients for 30 s
+[4/4] scrypt-n131072-r8-p1: 1 clients for 30 s
+[4/4] scrypt-n131072-r8-p1: 4 clients for 30 s
+[4/4] scrypt-n131072-r8-p1: 16 clients for 30 s
+Web login load test finished. Failed configurations: 0.

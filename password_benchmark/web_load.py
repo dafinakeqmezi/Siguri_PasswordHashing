@@ -217,6 +217,7 @@ def analyze_web_load(settings: dict, main_cfg, raw_dir: Path, results_dir: Path)
     for config_id, clients in dict.fromkeys((row["config_id"], row["clients"]) for row in rows):
         correct = by_key.get((config_id, clients, "correct"))
         total = by_key.get((config_id, clients, "all"))
+        wrong = by_key.get((config_id, clients, "wrong"))
         if correct is None or total is None:
             continue
         table.append(
@@ -226,7 +227,10 @@ def analyze_web_load(settings: dict, main_cfg, raw_dir: Path, results_dir: Path)
                 "clients": clients,
                 "requests": total["requests"],
                 "failures": total["failures"],
-                "logins_per_second": total["requests_per_second"],
+                "requests_per_second": total["requests_per_second"],
+                "correct_logins_per_second": correct["requests_per_second"],
+                "correct_requests": correct["requests"],
+                "wrong_requests": wrong["requests"] if wrong else 0,
                 "correct_median_ms": correct["median_ms"],
                 "correct_p95_ms": correct["p95_ms"],
                 "correct_p99_ms": correct["p99_ms"],
@@ -240,13 +244,14 @@ def analyze_web_load(settings: dict, main_cfg, raw_dir: Path, results_dir: Path)
     for row in table:
         orientation = ""
         if row["clients"] == reference:
-            inside = row["correct_p95_ms"] <= main_cfg.budget_a_ms and row["logins_per_second"] >= main_cfg.throughput_min
+            inside = row["correct_p95_ms"] <= main_cfg.budget_a_ms and row["requests_per_second"] >= main_cfg.throughput_min
             orientation = "yes" if inside else "no"
         md_rows.append(
             [
                 display_name(row["algorithm"]),
                 str(row["clients"]),
-                _fmt(row["logins_per_second"], 1),
+                _fmt(row["requests_per_second"], 1),
+                str(row["correct_requests"]),
                 _fmt(row["correct_median_ms"], 0),
                 _fmt(row["correct_p95_ms"], 0),
                 f"{row['failures']} of {row['requests']}",
@@ -262,11 +267,15 @@ def analyze_web_load(settings: dict, main_cfg, raw_dir: Path, results_dir: Path)
         "",
         f"A FastAPI service with one process ({sample['server_workers']} worker) verifies POST /login requests against "
         "hashes of the synthetic corpus at each baseline. Locust clients on the same machine send requests with no wait "
-        f"for {sample['duration_seconds']} s per row; {settings['wrong_password_fraction']:.0%} of requests use a wrong "
-        "password of the same length and must return 401. A failure is any other status code.",
+        f"with a configured duration of {sample['duration_seconds']} s per row; each request has a "
+        f"{settings['wrong_password_fraction']:.0%} probability of using a wrong "
+        "password of the same length, which must return 401. A failure means the response differs from the expected status (200 for correct passwords, 401 for wrong passwords).",
+        "",
+        "Requests/s includes both accepted logins and correctly rejected wrong-password attempts. "
+        "The CSV reports correct-login throughput separately. Correct n is the sample count used for the correct-password latency percentiles.",
         "",
         _md_table(
-            ["Algorithm", "Clients", "Logins/s", "Correct median ms", "Correct p95 ms", "Failures", f"Budget A thresholds at {reference}"],
+            ["Algorithm", "Clients", "Requests/s", "Correct n", "Correct median ms", "Correct p95 ms", "Failures", f"Budget A thresholds at {reference}"],
             md_rows,
         ),
         "",
@@ -281,6 +290,24 @@ def analyze_web_load(settings: dict, main_cfg, raw_dir: Path, results_dir: Path)
         "The benchmark uses synthetic passwords only. It does not perform password guessing against the service.",
         "",
     ]
+    warnings = []
+    for row in table:
+        if row["correct_requests"] < 100:
+            warnings.append(
+                f"{row['config_id']} at {row['clients']} clients has only {row['correct_requests']} correct requests; "
+                "p95 and p99 are based on very few tail observations and should be treated as exploratory."
+            )
+        if row["requests_per_second"] > 0:
+            interval = row["requests"] / row["requests_per_second"]
+            if interval < 0.9 * sample["duration_seconds"]:
+                warnings.append(
+                    f"{row['config_id']} at {row['clients']} clients: request count divided by reported Requests/s "
+                    f"implies a statistics interval of approximately {interval:.1f} s, shorter than the configured "
+                    f"{sample['duration_seconds']} s. This is inferred from aggregate statistics, not a recorded wall-clock "
+                    "duration. Investigate startup/final-statistics collection and repeat this case before treating it as a full-duration result."
+                )
+    if warnings:
+        lines.extend(["## Measurement qualifications", ""] + [f"- {warning}" for warning in warnings] + [""])
     (results_dir / "web_login.md").write_text("\n".join(lines), encoding="utf-8")
     print(f"Wrote {results_dir / 'web_login.md'}", flush=True)
     return 0
