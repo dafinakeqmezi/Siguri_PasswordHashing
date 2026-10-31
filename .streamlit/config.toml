@@ -1,0 +1,9 @@
+# The algorithm colors are validated against a light surface only.
+[theme]
+base = "light"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

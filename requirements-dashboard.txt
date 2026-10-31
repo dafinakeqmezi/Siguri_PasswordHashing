@@ -1,0 +1,4 @@
+# Optional: only for `streamlit run dashboard.py`.
+# Install on top of requirements-lock.txt. The experiments do not need these packages.
+streamlit==1.66.1
+altair==6.3.0

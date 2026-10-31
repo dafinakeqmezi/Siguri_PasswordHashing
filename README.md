@@ -69,6 +69,17 @@ bcrypt cost and scrypt N double the work per step, so in S5 those two use the ne
 
 It takes about 7 minutes plus hash setup, and writes `results/supplementary/web_login.md` and `web_login.csv` from `data/raw/supplementary/web_login.jsonl`. Run it before `save-run` if it should be part of a saved run. Each request also pays for HTTP, JSON parsing, and the server's thread pool, and the clients share the machine with the server, so these numbers describe this setup rather than a deployed service. Locust rounds response times above 100 ms to two significant digits.
 
+## Presentation dashboard
+
+`dashboard.py` is a Streamlit dashboard for presenting the two final runs. It only reads files under `runs/` (and the optional web login results under `results/supplementary/`) and does not change any run. Its sections follow the report: overview, environment, RQ1, RQ2, RQ3, statistical analysis, supplementary experiments S1 to S7, Mac against Windows, and the conclusion. A sidebar selects the saved run.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dashboard.txt
+.\.venv\Scripts\python.exe -m streamlit run dashboard.py
+```
+
+The browser opens at `http://localhost:8501`. The "Live demonstration" page times a few verifications on the presenting machine; those numbers are a demonstration, not results.
+
 ## Setup
 
 Windows and macOS use the same benchmark and configuration. Python 3.12 is
